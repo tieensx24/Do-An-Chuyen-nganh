@@ -33,25 +33,12 @@ services:
     image: mysql:8.0
     container_name: mysql_db
     ports:
-      - "3307:3306"
+      - "3307:3306" # Chú ý: Cổng máy chủ của bạn là 3307 nhé!
     environment:
       MYSQL_ROOT_PASSWORD: SecretPassword123!
       MYSQL_DATABASE: do_an_db
     volumes:
       - mysql_data:/var/lib/mysql 
-
-  # 4. PHPMYADMIN (QUẢN LÝ DATABASE TRÊN TRÌNH DUYỆT - GIỐNG XAMPP)
-  phpmyadmin:
-    image: phpmyadmin:latest
-    container_name: phpmyadmin_web
-    ports:
-      - "8081:80"
-    environment:
-      PMA_HOST: database
-      PMA_USER: root
-      PMA_PASSWORD: SecretPassword123!
-    depends_on:
-      - database
 
 volumes:
   mysql_data:
