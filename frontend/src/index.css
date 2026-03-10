@@ -1,0 +1,64 @@
+/* 1. Reset toàn bộ trình duyệt */
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+:root {
+  font-family: Arial, Helvetica, sans-serif; /* Đổi font cho giống web bán hàng */
+  line-height: 1.5;
+  background-color: #ffffff;
+  color: #333333;
+}
+
+/* 2. Ép Body phải chiếm 100% chiều rộng */
+body {
+  width: 100%;
+  min-height: 100vh;
+  display: block; /* Bỏ flex center cũ đi */
+  overflow-x: hidden; /* Chống tràn ngang */
+}
+
+#root {
+  width: 100%;
+}
+
+/* 3. Link trang trí lại cho đẹp */
+a {
+  text-decoration: none;
+  transition: 0.3s;
+}
+
+/* 4. Định dạng bảng cho chuyên nghiệp (Dùng cho trang Giỏ hàng/PO) */
+table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 20px;
+  background: white;
+}
+
+th, td {
+  padding: 12px;
+  border: 1px solid #ddd;
+  text-align: center;
+}
+
+th {
+  background-color: #f8f9fa;
+  font-weight: bold;
+}
+
+/* 5. Nút bấm phong cách xây dựng (Mạnh mẽ, vuông vức) */
+button {
+  cursor: pointer;
+  border: none;
+  border-radius: 4px;
+  padding: 10px 20px;
+  font-weight: bold;
+  transition: opacity 0.2s;
+}
+
+button:hover {
+  opacity: 0.8;
+}
