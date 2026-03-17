@@ -1,7 +1,9 @@
 import { useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom'; // 1. Bổ sung useNavigate
 
 export default function Register() {
+  const navigate = useNavigate(); // 2. Khai báo navigate
+
   const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
@@ -26,18 +28,36 @@ export default function Register() {
   const strengthColor = ['', '#e24b4a', '#ef9f27', '#639922', '#1d9e75'];
   const strength = passwordStrength();
 
-  const handleRegister = (e) => {
+  // 3. Đưa hàm handleRegister xịn xò của bạn vào đây
+  const handleRegister = async (e) => {
     e.preventDefault();
-    setError('');
     if (password !== confirmPassword) {
-      setError('Mật khẩu xác nhận không khớp. Vui lòng thử lại.');
+      setError("Mật khẩu xác nhận không khớp!");
       return;
     }
     setLoading(true);
-    setTimeout(() => {
+    setError("");
+    try {
+      // Đảm bảo cổng Backend đúng là 5261
+      const res = await fetch("http://localhost:5261/api/auth/register", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ fullName, email, password }), 
+        // Lưu ý: C# Backend của chúng ta hiện chưa lưu trường 'phone', 
+        // nên mình chỉ gửi fullName, email, password là đủ.
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setError(data.message || "Đăng ký thất bại!");
+        return;
+      }
+      alert("Đăng ký thành công! Vui lòng đăng nhập.");
+      navigate("/login"); // Chuyển sang trang đăng nhập
+    } catch {
+      setError("Không thể kết nối server!");
+    } finally {
       setLoading(false);
-      alert("Giao diện Đăng ký đã sẵn sàng gửi dữ liệu xuống Backend!");
-    }, 900);
+    }
   };
 
   return (

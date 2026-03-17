@@ -1,24 +1,43 @@
 import { useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 
 export default function Login() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPass, setShowPass] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
 
-  const handleLogin = (e) => {
+  const navigate = useNavigate();
+
+  const handleLogin = async (e) => {
     e.preventDefault();
     setLoading(true);
-    setTimeout(() => {
+    setError("");
+    try {
+      const res = await fetch("http://localhost:5261/api/auth/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, password }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setError(data.message || "Đăng nhập thất bại!");
+        return;
+      }
+      localStorage.setItem("user", JSON.stringify(data));
+      alert(`Chào mừng ${data.fullName}!`);
+      navigate("/");
+    } catch {
+      setError("Không thể kết nối server!");
+    } finally {
       setLoading(false);
-      alert("Giao diện Đăng nhập đã sẵn sàng kết nối Backend!");
-    }, 800);
+    }
   };
 
   return (
     <div style={s.page}>
-      {/* Left panel — decorative */}
+      {/* Left panel */}
       <div style={s.left}>
         <div style={s.leftOverlay} />
         <div style={s.leftContent}>
@@ -50,7 +69,7 @@ export default function Login() {
         </div>
       </div>
 
-      {/* Right panel — form */}
+      {/* Right panel */}
       <div style={s.right}>
         <div style={s.formBox}>
           <div style={s.formHeader}>
@@ -96,11 +115,7 @@ export default function Login() {
                   onFocus={(e) => e.currentTarget.parentElement.style.borderColor = "#2d6e4e"}
                   onBlur={(e) => e.currentTarget.parentElement.style.borderColor = "#e0ddd8"}
                 />
-                <button
-                  type="button"
-                  onClick={() => setShowPass(!showPass)}
-                  style={s.eyeBtn}
-                >
+                <button type="button" onClick={() => setShowPass(!showPass)} style={s.eyeBtn}>
                   {showPass ? "🙈" : "👁"}
                 </button>
               </div>
@@ -113,6 +128,13 @@ export default function Login() {
                 <span style={{ color: "#666", fontSize: "0.85rem" }}>Ghi nhớ đăng nhập</span>
               </label>
             </div>
+
+            {/* Error box */}
+            {error && (
+              <div style={s.errorBox}>
+                ⚠ {error}
+              </div>
+            )}
 
             {/* Submit */}
             <button
@@ -168,7 +190,6 @@ const s = {
     fontFamily: "'Be Vietnam Pro', 'Segoe UI', sans-serif",
     background: "#f5f4f0",
   },
-  // Left
   left: {
     flex: 1,
     position: "relative",
@@ -194,226 +215,74 @@ const s = {
     padding: "48px",
     minHeight: "100vh",
   },
-  leftLogo: {
-    display: "flex",
-    alignItems: "center",
-    gap: "12px",
-  },
+  leftLogo: { display: "flex", alignItems: "center", gap: "12px" },
   logoIcon: {
-    width: "42px",
-    height: "42px",
+    width: "42px", height: "42px",
     background: "linear-gradient(135deg, #2d6e4e, #1a3c2e)",
     borderRadius: "10px",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
+    display: "flex", alignItems: "center", justifyContent: "center",
     fontSize: "1.2rem",
     border: "1px solid rgba(168,213,181,0.3)",
   },
-  logoName: {
-    fontWeight: "800",
-    fontSize: "1rem",
-    color: "#fff",
-    letterSpacing: "0.04em",
-    lineHeight: 1,
-  },
-  logoSub: {
-    fontSize: "0.65rem",
-    color: "rgba(255,255,255,0.45)",
-    letterSpacing: "0.1em",
-    textTransform: "uppercase",
-    marginTop: "2px",
-  },
-  leftBody: {
-    paddingBottom: "8px",
-  },
-  leftTitle: {
-    fontSize: "clamp(2.2rem, 4vw, 3.2rem)",
-    fontWeight: "900",
-    color: "#fff",
-    margin: "0 0 20px",
-    lineHeight: "1.15",
-    letterSpacing: "-0.03em",
-  },
-  leftDesc: {
-    fontSize: "0.95rem",
-    color: "rgba(255,255,255,0.6)",
-    lineHeight: "1.75",
-    maxWidth: "380px",
-    margin: "0 0 40px",
-  },
-  statRow: {
-    display: "flex",
-    gap: "32px",
-  },
+  logoName: { fontWeight: "800", fontSize: "1rem", color: "#fff", letterSpacing: "0.04em", lineHeight: 1 },
+  logoSub: { fontSize: "0.65rem", color: "rgba(255,255,255,0.45)", letterSpacing: "0.1em", textTransform: "uppercase", marginTop: "2px" },
+  leftBody: { paddingBottom: "8px" },
+  leftTitle: { fontSize: "clamp(2.2rem, 4vw, 3.2rem)", fontWeight: "900", color: "#fff", margin: "0 0 20px", lineHeight: "1.15", letterSpacing: "-0.03em" },
+  leftDesc: { fontSize: "0.95rem", color: "rgba(255,255,255,0.6)", lineHeight: "1.75", maxWidth: "380px", margin: "0 0 40px" },
+  statRow: { display: "flex", gap: "32px" },
   stat: { textAlign: "left" },
-  statVal: {
-    fontSize: "1.6rem",
-    fontWeight: "900",
-    color: "#a8d5b5",
-    lineHeight: 1,
-  },
-  statLabel: {
-    fontSize: "0.72rem",
-    color: "rgba(255,255,255,0.4)",
-    marginTop: "4px",
-    letterSpacing: "0.08em",
-    textTransform: "uppercase",
-  },
-  // Right
+  statVal: { fontSize: "1.6rem", fontWeight: "900", color: "#a8d5b5", lineHeight: 1 },
+  statLabel: { fontSize: "0.72rem", color: "rgba(255,255,255,0.4)", marginTop: "4px", letterSpacing: "0.08em", textTransform: "uppercase" },
   right: {
-    width: "480px",
-    flexShrink: 0,
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    padding: "40px 32px",
-    background: "#f5f4f0",
+    width: "480px", flexShrink: 0,
+    display: "flex", alignItems: "center", justifyContent: "center",
+    padding: "40px 32px", background: "#f5f4f0",
   },
-  formBox: {
-    width: "100%",
-    maxWidth: "380px",
-  },
-  formHeader: {
-    marginBottom: "36px",
-  },
+  formBox: { width: "100%", maxWidth: "380px" },
+  formHeader: { marginBottom: "36px" },
   formTag: {
-    display: "inline-block",
-    background: "#1a3c2e",
-    color: "#a8d5b5",
-    fontSize: "0.68rem",
-    fontWeight: "700",
-    letterSpacing: "0.12em",
-    textTransform: "uppercase",
-    padding: "4px 12px",
-    borderRadius: "999px",
-    marginBottom: "14px",
+    display: "inline-block", background: "#1a3c2e", color: "#a8d5b5",
+    fontSize: "0.68rem", fontWeight: "700", letterSpacing: "0.12em", textTransform: "uppercase",
+    padding: "4px 12px", borderRadius: "999px", marginBottom: "14px",
   },
-  formTitle: {
-    fontSize: "2rem",
-    fontWeight: "900",
-    color: "#1a1a1a",
-    margin: "0 0 6px",
-    letterSpacing: "-0.03em",
-  },
-  formSub: {
-    fontSize: "0.88rem",
-    color: "#999",
-    margin: 0,
-  },
-  form: {
-    display: "flex",
-    flexDirection: "column",
-    gap: "20px",
-  },
-  field: {
-    display: "flex",
-    flexDirection: "column",
-    gap: "7px",
-  },
-  label: {
-    fontSize: "0.82rem",
-    fontWeight: "700",
-    color: "#333",
-    letterSpacing: "0.02em",
-  },
+  formTitle: { fontSize: "2rem", fontWeight: "900", color: "#1a1a1a", margin: "0 0 6px", letterSpacing: "-0.03em" },
+  formSub: { fontSize: "0.88rem", color: "#999", margin: 0 },
+  form: { display: "flex", flexDirection: "column", gap: "20px" },
+  field: { display: "flex", flexDirection: "column", gap: "7px" },
+  label: { fontSize: "0.82rem", fontWeight: "700", color: "#333", letterSpacing: "0.02em" },
   inputWrap: {
-    display: "flex",
-    alignItems: "center",
-    background: "#fff",
-    border: "1.5px solid #e0ddd8",
-    borderRadius: "10px",
-    transition: "border-color 0.2s",
-    position: "relative",
+    display: "flex", alignItems: "center",
+    background: "#fff", border: "1.5px solid #e0ddd8",
+    borderRadius: "10px", transition: "border-color 0.2s", position: "relative",
   },
-  inputIcon: {
-    padding: "0 12px 0 14px",
-    fontSize: "0.9rem",
-    color: "#bbb",
-    flexShrink: 0,
-  },
+  inputIcon: { padding: "0 12px 0 14px", fontSize: "0.9rem", color: "#bbb", flexShrink: 0 },
   input: {
-    flex: 1,
-    border: "none",
-    background: "transparent",
-    padding: "13px 14px 13px 0",
-    fontSize: "0.92rem",
-    color: "#1a1a1a",
-    width: "100%",
-    fontFamily: "inherit",
+    flex: 1, border: "none", background: "transparent",
+    padding: "13px 14px 13px 0", fontSize: "0.92rem", color: "#1a1a1a",
+    width: "100%", fontFamily: "inherit",
   },
-  eyeBtn: {
-    position: "absolute",
-    right: "12px",
-    background: "none",
-    border: "none",
-    cursor: "pointer",
-    fontSize: "0.95rem",
-    padding: "4px",
-    color: "#bbb",
-    lineHeight: 1,
-  },
-  forgot: {
-    fontSize: "0.78rem",
-    color: "#2d6e4e",
-    textDecoration: "none",
-    fontWeight: "600",
-  },
-  rememberRow: {
-    marginTop: "-4px",
-  },
-  checkLabel: {
-    display: "flex",
-    alignItems: "center",
-    gap: "8px",
-    cursor: "pointer",
+  eyeBtn: { position: "absolute", right: "12px", background: "none", border: "none", cursor: "pointer", fontSize: "0.95rem", padding: "4px", color: "#bbb", lineHeight: 1 },
+  forgot: { fontSize: "0.78rem", color: "#2d6e4e", textDecoration: "none", fontWeight: "600" },
+  rememberRow: { marginTop: "-4px" },
+  checkLabel: { display: "flex", alignItems: "center", gap: "8px", cursor: "pointer" },
+  errorBox: {
+    background: "#fcebeb", border: "1px solid #f09595",
+    color: "#a32d2d", fontSize: "0.83rem", fontWeight: "600",
+    padding: "10px 14px", borderRadius: "8px",
   },
   submitBtn: {
-    padding: "14px",
-    background: "#1a3c2e",
-    color: "white",
-    border: "none",
-    borderRadius: "10px",
-    fontSize: "0.95rem",
-    fontWeight: "700",
-    transition: "all 0.2s",
-    letterSpacing: "0.02em",
-    marginTop: "4px",
+    padding: "14px", background: "#1a3c2e", color: "white",
+    border: "none", borderRadius: "10px", fontSize: "0.95rem",
+    fontWeight: "700", transition: "all 0.2s", letterSpacing: "0.02em", marginTop: "4px",
   },
   spinner: {
-    width: "16px",
-    height: "16px",
-    border: "2px solid rgba(255,255,255,0.3)",
-    borderTopColor: "#fff",
-    borderRadius: "50%",
-    display: "inline-block",
-    animation: "spin 0.7s linear infinite",
+    width: "16px", height: "16px",
+    border: "2px solid rgba(255,255,255,0.3)", borderTopColor: "#fff",
+    borderRadius: "50%", display: "inline-block", animation: "spin 0.7s linear infinite",
   },
-  dividerWrap: {
-    display: "flex",
-    alignItems: "center",
-    gap: "12px",
-    margin: "24px 0 20px",
-  },
-  dividerLine: {
-    flex: 1,
-    height: "1px",
-    background: "#e0ddd8",
-  },
-  dividerText: {
-    fontSize: "0.78rem",
-    color: "#bbb",
-    fontWeight: "500",
-  },
-  registerText: {
-    textAlign: "center",
-    fontSize: "0.88rem",
-    color: "#888",
-    margin: 0,
-  },
-  registerLink: {
-    color: "#1a3c2e",
-    fontWeight: "700",
-    textDecoration: "none",
-  },
+  dividerWrap: { display: "flex", alignItems: "center", gap: "12px", margin: "24px 0 20px" },
+  dividerLine: { flex: 1, height: "1px", background: "#e0ddd8" },
+  dividerText: { fontSize: "0.78rem", color: "#bbb", fontWeight: "500" },
+  registerText: { textAlign: "center", fontSize: "0.88rem", color: "#888", margin: 0 },
+  registerLink: { color: "#1a3c2e", fontWeight: "700", textDecoration: "none" },
 };
