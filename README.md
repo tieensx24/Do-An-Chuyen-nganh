@@ -31,7 +31,7 @@
 
 ```bash
 # 1. Clone repository
-git clone https://github.com/YOUR_USERNAME/DoAnChuyenNganh.git
+git clone https://github.com/tieensx24/DoAnChuyenNganh.git
 
 # 2. Di chuyển vào thư mục project
 cd DoAnChuyenNganh
