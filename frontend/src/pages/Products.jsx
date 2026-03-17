@@ -273,7 +273,7 @@ export default function Products() {
                   transform: hoveredId === item.id ? "scale(1.07)" : "scale(1)",
                 }}
                 onError={(e) => {
-                  e.target.src = "https://via.placeholder.com/300x200?text=Chua+co+anh";
+                  e.target.src = "https://images2.thanhnien.vn/528068263637045248/2024/3/4/doi-cat-17095366808631661694876.jpg";
                 }}
               />
               <div style={styles.categoryBadge}>{item.category}</div>

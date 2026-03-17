@@ -38,7 +38,7 @@ function Navigation() {
   return (
     <nav style={{
       position: "fixed",
-      top: 0,
+      top: "32px",
       left: 0,
       right: 0,
       zIndex: 1000,
@@ -158,6 +158,11 @@ function Navigation() {
 function AnnouncementBar() {
   return (
     <div style={{
+      position: "fixed",  // ← thêm
+      top: 0,             // ← thêm
+      left: 0,            // ← thêm
+      right: 0,           // ← thêm
+      zIndex: 1001,       // ← thêm
       background: "#0c1912",
       borderBottom: "1px solid rgba(168,213,181,0.15)",
       padding: "8px 0",
