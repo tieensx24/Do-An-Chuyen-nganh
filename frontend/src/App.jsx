@@ -8,6 +8,7 @@ import Checkout from "./pages/Checkout";
 import Register from "./pages/Register";
 import ProductDetail from "./pages/ProductDetail";
 import ShippingAddress from "./pages/ShippingAddress";
+import AdminDashboard from "./admin/AdminDashboard";
 
 function Navigation() {
   const { cartItems } = useCart();
@@ -218,6 +219,7 @@ function Layout() {
           <Route path="/register" element={<Register />} />
           <Route path="/product/:id" element={<ProductDetail />} />
           <Route path="/shipping" element={<ShippingAddress />} />
+          <Route path="/admin" element={<AdminDashboard />} />
         </Routes>
       </div>
 
