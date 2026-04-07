@@ -20,16 +20,32 @@ export default function Login() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email, password }),
       });
+      
       const data = await res.json();
+      
       if (!res.ok) {
         setError(data.message || "Đăng nhập thất bại!");
+        setLoading(false);
         return;
       }
+
+      // 1. Lưu thông tin người dùng vào localStorage
       localStorage.setItem("user", JSON.stringify(data));
+      // Lưu thêm token riêng lẻ nếu cần cho các request sau
+      if (data.token) localStorage.setItem("adminToken", data.token);
+
       alert(`Chào mừng ${data.fullName}!`);
-      navigate("/");
-    } catch {
-      setError("Không thể kết nối server!");
+
+      // 2. LOGIC ĐIỀU HƯỚNG DỰA TRÊN ROLE
+      // Backend của bạn trả về data.role (admin hoặc user)
+      if (data.role === "admin") {
+        navigate("/admin"); // Chuyển hướng đến trang quản trị
+      } else {
+        navigate("/");      // Chuyển hướng về trang chủ khách hàng
+      }
+
+    } catch (err) {
+      setError("Không thể kết nối server! Vui lòng kiểm tra Docker.");
     } finally {
       setLoading(false);
     }
@@ -86,7 +102,7 @@ export default function Login() {
                 <span style={s.inputIcon}>✉</span>
                 <input
                   type="email"
-                  placeholder="ten@email.com"
+                  placeholder="admin@kientao.vn"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   required
@@ -184,46 +200,12 @@ export default function Login() {
 }
 
 const s = {
-  page: {
-    display: "flex",
-    minHeight: "100vh",
-    fontFamily: "'Be Vietnam Pro', 'Segoe UI', sans-serif",
-    background: "#f5f4f0",
-  },
-  left: {
-    flex: 1,
-    position: "relative",
-    backgroundImage: "url('/home/image/home2.jpg')",
-    backgroundSize: "cover",
-    backgroundPosition: "center",
-    display: "flex",
-    flexDirection: "column",
-    minHeight: "100vh",
-  },
-  leftOverlay: {
-    position: "absolute",
-    inset: 0,
-    background: "linear-gradient(160deg, rgba(10,22,15,0.88) 0%, rgba(10,22,15,0.65) 100%)",
-  },
-  leftContent: {
-    position: "relative",
-    zIndex: 1,
-    display: "flex",
-    flexDirection: "column",
-    justifyContent: "space-between",
-    height: "100%",
-    padding: "48px",
-    minHeight: "100vh",
-  },
+  page: { display: "flex", minHeight: "100vh", fontFamily: "'Be Vietnam Pro', 'Segoe UI', sans-serif", background: "#f5f4f0" },
+  left: { flex: 1, position: "relative", backgroundImage: "url('/home/image/home2.jpg')", backgroundSize: "cover", backgroundPosition: "center", display: "flex", flexDirection: "column", minHeight: "100vh" },
+  leftOverlay: { position: "absolute", inset: 0, background: "linear-gradient(160deg, rgba(10,22,15,0.88) 0%, rgba(10,22,15,0.65) 100%)" },
+  leftContent: { position: "relative", zIndex: 1, display: "flex", flexDirection: "column", justifyContent: "space-between", height: "100%", padding: "48px", minHeight: "100vh" },
   leftLogo: { display: "flex", alignItems: "center", gap: "12px" },
-  logoIcon: {
-    width: "42px", height: "42px",
-    background: "linear-gradient(135deg, #2d6e4e, #1a3c2e)",
-    borderRadius: "10px",
-    display: "flex", alignItems: "center", justifyContent: "center",
-    fontSize: "1.2rem",
-    border: "1px solid rgba(168,213,181,0.3)",
-  },
+  logoIcon: { width: "42px", height: "42px", background: "linear-gradient(135deg, #2d6e4e, #1a3c2e)", borderRadius: "10px", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "1.2rem", border: "1px solid rgba(168,213,181,0.3)" },
   logoName: { fontWeight: "800", fontSize: "1rem", color: "#fff", letterSpacing: "0.04em", lineHeight: 1 },
   logoSub: { fontSize: "0.65rem", color: "rgba(255,255,255,0.45)", letterSpacing: "0.1em", textTransform: "uppercase", marginTop: "2px" },
   leftBody: { paddingBottom: "8px" },
@@ -233,53 +215,25 @@ const s = {
   stat: { textAlign: "left" },
   statVal: { fontSize: "1.6rem", fontWeight: "900", color: "#a8d5b5", lineHeight: 1 },
   statLabel: { fontSize: "0.72rem", color: "rgba(255,255,255,0.4)", marginTop: "4px", letterSpacing: "0.08em", textTransform: "uppercase" },
-  right: {
-    width: "480px", flexShrink: 0,
-    display: "flex", alignItems: "center", justifyContent: "center",
-    padding: "40px 32px", background: "#f5f4f0",
-  },
+  right: { width: "480px", flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center", padding: "40px 32px", background: "#f5f4f0" },
   formBox: { width: "100%", maxWidth: "380px" },
   formHeader: { marginBottom: "36px" },
-  formTag: {
-    display: "inline-block", background: "#1a3c2e", color: "#a8d5b5",
-    fontSize: "0.68rem", fontWeight: "700", letterSpacing: "0.12em", textTransform: "uppercase",
-    padding: "4px 12px", borderRadius: "999px", marginBottom: "14px",
-  },
+  formTag: { display: "inline-block", background: "#1a3c2e", color: "#a8d5b5", fontSize: "0.68rem", fontWeight: "700", letterSpacing: "0.12em", textTransform: "uppercase", padding: "4px 12px", borderRadius: "999px", marginBottom: "14px" },
   formTitle: { fontSize: "2rem", fontWeight: "900", color: "#1a1a1a", margin: "0 0 6px", letterSpacing: "-0.03em" },
   formSub: { fontSize: "0.88rem", color: "#999", margin: 0 },
   form: { display: "flex", flexDirection: "column", gap: "20px" },
   field: { display: "flex", flexDirection: "column", gap: "7px" },
   label: { fontSize: "0.82rem", fontWeight: "700", color: "#333", letterSpacing: "0.02em" },
-  inputWrap: {
-    display: "flex", alignItems: "center",
-    background: "#fff", border: "1.5px solid #e0ddd8",
-    borderRadius: "10px", transition: "border-color 0.2s", position: "relative",
-  },
+  inputWrap: { display: "flex", alignItems: "center", background: "#fff", border: "1.5px solid #e0ddd8", borderRadius: "10px", transition: "border-color 0.2s", position: "relative" },
   inputIcon: { padding: "0 12px 0 14px", fontSize: "0.9rem", color: "#bbb", flexShrink: 0 },
-  input: {
-    flex: 1, border: "none", background: "transparent",
-    padding: "13px 14px 13px 0", fontSize: "0.92rem", color: "#1a1a1a",
-    width: "100%", fontFamily: "inherit",
-  },
+  input: { flex: 1, border: "none", background: "transparent", padding: "13px 14px 13px 0", fontSize: "0.92rem", color: "#1a1a1a", width: "100%", fontFamily: "inherit" },
   eyeBtn: { position: "absolute", right: "12px", background: "none", border: "none", cursor: "pointer", fontSize: "0.95rem", padding: "4px", color: "#bbb", lineHeight: 1 },
   forgot: { fontSize: "0.78rem", color: "#2d6e4e", textDecoration: "none", fontWeight: "600" },
   rememberRow: { marginTop: "-4px" },
   checkLabel: { display: "flex", alignItems: "center", gap: "8px", cursor: "pointer" },
-  errorBox: {
-    background: "#fcebeb", border: "1px solid #f09595",
-    color: "#a32d2d", fontSize: "0.83rem", fontWeight: "600",
-    padding: "10px 14px", borderRadius: "8px",
-  },
-  submitBtn: {
-    padding: "14px", background: "#1a3c2e", color: "white",
-    border: "none", borderRadius: "10px", fontSize: "0.95rem",
-    fontWeight: "700", transition: "all 0.2s", letterSpacing: "0.02em", marginTop: "4px",
-  },
-  spinner: {
-    width: "16px", height: "16px",
-    border: "2px solid rgba(255,255,255,0.3)", borderTopColor: "#fff",
-    borderRadius: "50%", display: "inline-block", animation: "spin 0.7s linear infinite",
-  },
+  errorBox: { background: "#fcebeb", border: "1px solid #f09595", color: "#a32d2d", fontSize: "0.83rem", fontWeight: "600", padding: "10px 14px", borderRadius: "8px" },
+  submitBtn: { padding: "14px", background: "#1a3c2e", color: "white", border: "none", borderRadius: "10px", fontSize: "0.95rem", fontWeight: "700", transition: "all 0.2s", letterSpacing: "0.02em", marginTop: "4px" },
+  spinner: { width: "16px", height: "16px", border: "2px solid rgba(255,255,255,0.3)", borderTopColor: "#fff", borderRadius: "50%", display: "inline-block", animation: "spin 0.7s linear infinite" },
   dividerWrap: { display: "flex", alignItems: "center", gap: "12px", margin: "24px 0 20px" },
   dividerLine: { flex: 1, height: "1px", background: "#e0ddd8" },
   dividerText: { fontSize: "0.78rem", color: "#bbb", fontWeight: "500" },

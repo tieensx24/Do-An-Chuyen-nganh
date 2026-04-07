@@ -1683,11 +1683,11 @@
   "project": {
     "version": "1.0.0",
     "restore": {
-      "projectUniqueName": "A:\\DoAnChuyenNganh\\backend\\backend.csproj",
+      "projectUniqueName": "A:\\DOAN1\\Do-An-Chuyen-nganh\\backend\\backend.csproj",
       "projectName": "backend",
-      "projectPath": "A:\\DoAnChuyenNganh\\backend\\backend.csproj",
+      "projectPath": "A:\\DOAN1\\Do-An-Chuyen-nganh\\backend\\backend.csproj",
       "packagesPath": "C:\\Users\\84342\\.nuget\\packages\\",
-      "outputPath": "A:\\DoAnChuyenNganh\\backend\\obj\\",
+      "outputPath": "A:\\DOAN1\\Do-An-Chuyen-nganh\\backend\\obj\\",
       "projectStyle": "PackageReference",
       "configFilePaths": [
         "C:\\Users\\84342\\AppData\\Roaming\\NuGet\\NuGet.Config",

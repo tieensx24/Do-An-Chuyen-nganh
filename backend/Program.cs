@@ -3,15 +3,15 @@ using backend.Data;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// Kết nối MySQL
+// 1. Kết nối MySQL
 builder.Services.AddDbContext<AppDbContext>(options =>
     options.UseMySQL(builder.Configuration.GetConnectionString("DefaultConnection")!));
 
-// Cho phép React gọi API
+// 2. Cấu hình CORS (Mở "AllowAll" để cả React và Swagger đều gọi API thoải mái)
 builder.Services.AddCors(options =>
 {
-    options.AddPolicy("AllowReact", policy =>
-        policy.WithOrigins("http://localhost:5173")
+    options.AddPolicy("AllowAll", policy =>
+        policy.AllowAnyOrigin()
               .AllowAnyHeader()
               .AllowAnyMethod());
 });
@@ -22,9 +22,23 @@ builder.Services.AddSwaggerGen();
 
 var app = builder.Build();
 
+// ==========================================
+// 3. KHU VỰC MIDDLEWARE (THỨ TỰ CỰC KỲ QUAN TRỌNG)
+// ==========================================
+
+// Bật Swagger
 app.UseSwagger();
 app.UseSwaggerUI();
 
-app.UseCors("AllowReact");
+// Bật CORS (Phải nằm trước StaticFiles và Authorization)
+app.UseCors("AllowAll"); 
+
+// Bật đọc file tĩnh (Để load ảnh từ wwwroot)
+app.UseStaticFiles(); 
+
+app.UseAuthorization();
+
 app.MapControllers();
+
+// Lệnh Run CHỈ ĐƯỢC GỌI 1 LẦN DUY NHẤT ở cuối cùng
 app.Run();

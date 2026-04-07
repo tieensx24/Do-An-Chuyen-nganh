@@ -28,4 +28,6 @@ public class User
 
     [Column("updated_at")]
     public DateTime UpdatedAt { get; set; } = DateTime.Now;
+   
+      // ← thêm ?
 }

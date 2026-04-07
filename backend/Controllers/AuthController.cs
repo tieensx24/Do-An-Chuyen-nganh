@@ -51,8 +51,19 @@ public class AuthController : ControllerBase
             email    = user.Email,
             role     = user.Role,
         });
+    } // <--- ĐÓNG NGOẶC CỦA HÀM LOGIN Ở ĐÂY
+
+    // HÀM MỚI NẰM ĐỘC LẬP BÊN NGOÀI
+    [HttpGet("/api/user")] 
+    public async Task<IActionResult> GetAllUsers()
+    {
+        // Lấy toàn bộ danh sách user từ bảng Users trong Database
+        var users = await _db.Users.ToListAsync();
+        
+        // Trả về dữ liệu với mã 200 OK
+        return Ok(users);
     }
-}
+} // <--- ĐÓNG NGOẶC CỦA CLASS AUTHCONTROLLER
 
 public record RegisterDto(string FullName, string Email, string Password);
 public record LoginDto(string Email, string Password);
