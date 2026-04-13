@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 
 export default function Login() {
@@ -10,10 +10,22 @@ export default function Login() {
 
   const navigate = useNavigate();
 
+  // --- TÍNH NĂNG BẢO VỆ: CHẶN NGƯỜI DÙNG ĐÃ ĐĂNG NHẬP ---
+  useEffect(() => {
+    const saved = localStorage.getItem("user");
+    if (saved) {
+      const user = JSON.parse(saved);
+      // Nếu đã đăng nhập, tự động đá về đúng trang
+      if (user.role === "admin") navigate("/admin");
+      else navigate("/");
+    }
+  }, [navigate]);
+
   const handleLogin = async (e) => {
     e.preventDefault();
     setLoading(true);
     setError("");
+    
     try {
       const res = await fetch("http://localhost:5261/api/auth/login", {
         method: "POST",
@@ -31,13 +43,13 @@ export default function Login() {
 
       // 1. Lưu thông tin người dùng vào localStorage
       localStorage.setItem("user", JSON.stringify(data));
-      // Lưu thêm token riêng lẻ nếu cần cho các request sau
-      if (data.token) localStorage.setItem("adminToken", data.token);
-
-      alert(`Chào mừng ${data.fullName}!`);
+      
+      // Lưu thêm token riêng lẻ (giả lập) để hàm ProtectedAdminRoute hoạt động trơn tru
+      if (data.role === "admin") {
+        localStorage.setItem("adminToken", "admin-logged-in");
+      }
 
       // 2. LOGIC ĐIỀU HƯỚNG DỰA TRÊN ROLE
-      // Backend của bạn trả về data.role (admin hoặc user)
       if (data.role === "admin") {
         navigate("/admin"); // Chuyển hướng đến trang quản trị
       } else {
@@ -102,7 +114,7 @@ export default function Login() {
                 <span style={s.inputIcon}>✉</span>
                 <input
                   type="email"
-                  placeholder="admin@kientao.vn"
+                  placeholder="name@email.com"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   required

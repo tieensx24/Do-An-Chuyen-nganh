@@ -1,6 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using backend.Models;
-using backend.Helpers; // 1. THÊM DÒNG NÀY ĐỂ GỌI ENCRYPTION HELPER
+// using backend.Helpers; // Tạm thời khóa dòng này lại nếu file Helpers không còn dùng ở đây nữa
 
 namespace backend.Data;
 
@@ -10,18 +10,19 @@ public class AppDbContext : DbContext
 
     public DbSet<User> Users { get; set; }
     public DbSet<Product> Products { get; set; }
-
-    // 2. THÊM NGUYÊN HÀM NÀY VÀO ĐỂ CẤU HÌNH MÃ HÓA
+    public DbSet<Order> Orders { get; set; }
+    public DbSet<OrderItem> OrderItems { get; set; }
+    public DbSet<Category> Categories { get; set; }
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
 
-        // Báo cho EF Core tự động Mã hóa (lúc lưu) và Giải mã (lúc lấy) cho cột FullName
-        modelBuilder.Entity<User>()
-            .Property(u => u.FullName)
-            .HasConversion(
-                textCanLuu => EncryptionHelper.Encrypt(textCanLuu),
-                textTuDbVe => EncryptionHelper.Decrypt(textTuDbVe)
-            );
+        // ĐÃ TẮT MÃ HÓA: Cấu hình bảng User để lưu tên dưới dạng chữ bình thường
+        // modelBuilder.Entity<User>()
+        //     .Property(u => u.FullName)
+        //     .HasConversion(
+        //         textCanLuu => EncryptionHelper.Encrypt(textCanLuu),
+        //         textTuDbVe => EncryptionHelper.Decrypt(textTuDbVe)
+        //     );
     }
 }

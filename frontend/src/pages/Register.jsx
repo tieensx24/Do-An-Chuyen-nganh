@@ -42,7 +42,7 @@ export default function Register() {
       const res = await fetch("http://localhost:5261/api/auth/register", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ fullName, email, password }), 
+        body: JSON.stringify({ fullName, email, phone, password }), 
         // Lưu ý: C# Backend của chúng ta hiện chưa lưu trường 'phone', 
         // nên mình chỉ gửi fullName, email, password là đủ.
       });

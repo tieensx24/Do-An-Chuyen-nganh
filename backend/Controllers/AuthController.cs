@@ -22,7 +22,9 @@ public class AuthController : ControllerBase
         {
             Email        = dto.Email,
             FullName     = dto.FullName,
-            PasswordHash = BCrypt.Net.BCrypt.HashPassword(dto.Password),
+            Phone        = dto.Phone, // <--- THÊM NHẬN SỐ ĐIỆN THOẠI Ở ĐÂY
+            // TẮT BĂM: Lưu trực tiếp mật khẩu từ người dùng nhập
+            PasswordHash = dto.Password, 
             Role         = "user",
             IsActive     = true,
         };
@@ -36,9 +38,11 @@ public class AuthController : ControllerBase
     [HttpPost("login")]
     public async Task<IActionResult> Login([FromBody] LoginDto dto)
     {
+        // 1. Tìm user theo Email
         var user = await _db.Users.FirstOrDefaultAsync(u => u.Email == dto.Email);
 
-        if (user == null || !BCrypt.Net.BCrypt.Verify(dto.Password, user.PasswordHash))
+        // 2. TẮT VERIFY: So sánh trực tiếp chuỗi mật khẩu trong DB với mật khẩu nhập vào
+        if (user == null || user.PasswordHash != dto.Password)
             return Unauthorized(new { message = "Email hoặc mật khẩu không đúng!" });
 
         if (!user.IsActive)
@@ -51,19 +55,16 @@ public class AuthController : ControllerBase
             email    = user.Email,
             role     = user.Role,
         });
-    } // <--- ĐÓNG NGOẶC CỦA HÀM LOGIN Ở ĐÂY
+    }
 
-    // HÀM MỚI NẰM ĐỘC LẬP BÊN NGOÀI
     [HttpGet("/api/user")] 
     public async Task<IActionResult> GetAllUsers()
     {
-        // Lấy toàn bộ danh sách user từ bảng Users trong Database
         var users = await _db.Users.ToListAsync();
-        
-        // Trả về dữ liệu với mã 200 OK
         return Ok(users);
     }
-} // <--- ĐÓNG NGOẶC CỦA CLASS AUTHCONTROLLER
+}
 
-public record RegisterDto(string FullName, string Email, string Password);
+// <--- THÊM 'string Phone' VÀO DÒNG NÀY
+public record RegisterDto(string FullName, string Email, string Phone, string Password);
 public record LoginDto(string Email, string Password);

@@ -1,14 +1,11 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 
 // ================== API CONFIG ==================
-// Đã trỏ về cổng Docker của bạn
 const API_BASE = "http://localhost:5261/api"; 
-const SERVER_URL = "http://localhost:5261"; // Thêm URL server để hiển thị ảnh
+const SERVER_URL = "http://localhost:5261"; 
 
-// Sửa hàm apiFetch để hỗ trợ FormData (loại bỏ Content-Type mặc định nếu gửi FormData)
 async function apiFetch(endpoint, options = {}) {
   const headers = { ...options.headers };
-  // Nếu không phải FormData thì mới ép kiểu JSON
   if (!(options.body instanceof FormData)) {
     headers["Content-Type"] = "application/json";
   }
@@ -18,34 +15,34 @@ async function apiFetch(endpoint, options = {}) {
     ...options,
   });
   if (!res.ok) throw new Error(`API error: ${res.status}`);
+  
+  // Xử lý cẩn thận nếu API không trả về nội dung (VD: lệnh DELETE)
   const text = await res.text();
-  return text ? JSON.parse(text) : {};
+  if (!text) return {}; 
+  try {
+    return JSON.parse(text);
+  } catch {
+    return text;
+  }
 }
 
-// ================== MOCK FALLBACK ==================
-// Giữ lại MOCK cho Thống kê, Đơn hàng vì Backend chưa có API này
-const MOCK = {
-  stats: { revenue: 128500000, orders: 47, products: 5, users: 38 },
-  revenueChart: [
-    { month: "T1", value: 12 }, { month: "T2", value: 18 }, { month: "T3", value: 9 },
-    { month: "T4", value: 24 }, { month: "T5", value: 31 }, { month: "T6", value: 28 },
-    { month: "T7", value: 19 }, { month: "T8", value: 35 }, { month: "T9", value: 42 },
-    { month: "T10", value: 38 }, { month: "T11", value: 51 }, { month: "T12", value: 47 },
-  ],
-  orders: [
-    { id: "#KT001", customer: "Nguyễn Văn A", phone: "0909123456", total: 850000, status: "pending", date: "17/03/2026", payment: "COD" },
-    { id: "#KT002", customer: "Trần Thị B", phone: "0912345678", total: 3200000, status: "shipping", date: "16/03/2026", payment: "Chuyển khoản" },
-  ],
-};
+// ================== MOCK CHART ==================
+const MOCK_CHART = [
+  { month: "T1", value: 12 }, { month: "T2", value: 18 }, { month: "T3", value: 9 },
+  { month: "T4", value: 24 }, { month: "T5", value: 31 }, { month: "T6", value: 28 },
+  { month: "T7", value: 19 }, { month: "T8", value: 35 }, { month: "T9", value: 42 },
+  { month: "T10", value: 38 }, { month: "T11", value: 51 }, { month: "T12", value: 47 },
+];
 
 // ================== MAIN COMPONENT ==================
 export default function AdminDashboard() {
   const [tab, setTab] = useState("dashboard");
   const [stats, setStats] = useState(null);
-  const [chart, setChart] = useState([]);
+  const [chart, setChart] = useState(MOCK_CHART);
   const [products, setProducts] = useState([]);
   const [orders, setOrders] = useState([]);
   const [users, setUsers] = useState([]);
+  const [categories, setCategories] = useState([]); 
   const [loading, setLoading] = useState(true);
   const [productModal, setProductModal] = useState(null); 
   const [search, setSearch] = useState("");
@@ -58,45 +55,74 @@ export default function AdminDashboard() {
   const loadAll = async () => {
     setLoading(true);
     try {
-      // 1. Fetch SẢN PHẨM thật từ MySQL
       const p = await apiFetch("/product");
       setProducts(p);
 
-      // 2. Fetch NGƯỜI DÙNG thật từ MySQL
       const u = await apiFetch("/user"); 
-      
-      // Chuyển đổi dữ liệu C# sang định dạng cho bảng hiển thị
       const formattedUsers = u.map(user => ({
         id: user.id,
         name: user.fullName || "Chưa cập nhật",
         email: user.email,
         phone: user.phone || "Chưa cập nhật",
         role: user.role === "admin" ? "admin" : "customer",
-        orders: 0, // Mặc định 0 vì chưa có API đếm đơn hàng
+        orders: 0, 
         joined: user.createdAt ? new Date(user.createdAt).toLocaleDateString("vi-VN") : "N/A"
       }));
       setUsers(formattedUsers);
 
-      // 3. Tải dữ liệu MOCK cho các tính năng chưa có API
-      setStats(MOCK.stats); 
-      setChart(MOCK.revenueChart); 
-      setOrders(MOCK.orders); 
+      const o = await apiFetch("/order");
+      const formattedOrders = o.map(order => ({
+        id: order.orderCode || `KT-${order.id}`, 
+        dbId: order.id,
+        customer: order.customerName,
+        phone: order.phone,
+        total: order.totalAmount,
+        status: order.status,
+        date: new Date(order.createdAt).toLocaleDateString("vi-VN"),
+        payment: order.paymentMethod === "cod" ? "COD" : "Chuyển khoản"
+      })).reverse(); 
+      
+      setOrders(formattedOrders);
+
+      const c = await apiFetch("/category");
+      setCategories(c);
+
+      const totalRevenue = formattedOrders
+        .filter(ord => ord.status === "done") 
+        .reduce((sum, ord) => sum + ord.total, 0);
+
+      setStats({
+        revenue: totalRevenue, 
+        orders: formattedOrders.length,  
+        products: p.length,          
+        users: u.length              
+      }); 
       
     } catch (err) {
       console.error("Lỗi:", err);
-      alert("Không thể kết nối đến cơ sở dữ liệu!");
+      alert("Lỗi khi kết nối API! Đảm bảo Backend đang chạy.");
     } finally {
       setLoading(false);
     }
   };
 
-  const updateOrderStatus = async (id, status) => {
-    setOrders(prev => prev.map(o => o.id === id ? { ...o, status } : o));
+  const updateOrderStatus = async (dbId, newStatus) => {
+    try {
+      await apiFetch(`/order/${dbId}/status`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(newStatus)
+      });
+      setOrders(prev => prev.map(o => o.dbId === dbId ? { ...o, status: newStatus } : o));
+      alert("Cập nhật trạng thái thành công!");
+    } catch (err) {
+      alert("Lỗi cập nhật trạng thái!");
+      console.error(err);
+    }
   };
 
-  // --- API XÓA SẢN PHẨM ---
   const deleteProduct = async (id) => {
-    if (!confirm("Xóa sản phẩm này?")) return;
+    if (!window.confirm("Xóa sản phẩm này?")) return;
     try { 
       await apiFetch(`/product/${id}`, { method: "DELETE" }); 
       setProducts(prev => prev.filter(p => p.id !== id));
@@ -105,8 +131,6 @@ export default function AdminDashboard() {
     }
   };
 
-  // --- THAY ĐỔI 1: API THÊM / SỬA SẢN PHẨM BẰNG FORMDATA ---
-// --- HÀM LƯU SẢN PHẨM (ĐÃ NÂNG CẤP ĐỂ BÁO LỖI CHI TIẾT) ---
   const saveProduct = async (data) => {
     const formData = new FormData();
     formData.append("Name", data.name);
@@ -118,7 +142,6 @@ export default function AdminDashboard() {
     formData.append("Unit", data.unit || "Cái");
     formData.append("Image", data.image || "");
 
-    // Đổi chữ 'i' thành 'I' hoa cho khớp chính xác 100% với Backend C#
     if (data.rawFile) {
       formData.append("ImageFile", data.rawFile); 
     }
@@ -132,12 +155,10 @@ export default function AdminDashboard() {
         body: formData,
       });
 
-      // NẾU CÓ LỖI, BÓC TÁCH LỖI TỪ C# ĐỂ XEM
       if (!res.ok) {
         const errorText = await res.text();
-        console.error("Chi tiết lỗi từ C#:", errorText);
-        alert("LỖI TỪ SERVER C#:\n\n" + errorText); // Hiển thị thẳng lỗi của C# lên màn hình
-        return; // Dừng lại, không chạy tiếp nữa
+        alert("LỖI TỪ SERVER C#:\n\n" + errorText);
+        return; 
       }
 
       loadAll(); 
@@ -219,6 +240,7 @@ export default function AdminDashboard() {
       {productModal && (
         <ProductModal
           product={productModal === "add" ? null : productModal}
+          categories={categories}
           onSave={saveProduct}
           onClose={() => setProductModal(null)}
         />
@@ -227,7 +249,7 @@ export default function AdminDashboard() {
       <style>{`
         @keyframes spin { to { transform: rotate(360deg); } }
         * { box-sizing: border-box; }
-        input::placeholder { color: #c0bdb8; }
+        input::placeholder, textarea::placeholder { color: #c0bdb8; }
         input:focus, select:focus, textarea:focus { outline: none; }
         button { font-family: inherit; }
       `}</style>
@@ -235,14 +257,15 @@ export default function AdminDashboard() {
   );
 }
 
-// ================== TAB: DASHBOARD (Giữ nguyên) ==================
+// ================== TAB: DASHBOARD ==================
 function TabDashboard({ stats, chart, orders }) {
   const maxVal = Math.max(...chart.map(c => c.value));
+  
   const statCards = [
-    { label: "Doanh thu tháng", value: (stats?.revenue || 0).toLocaleString("vi-VN") + " ₫", icon: "💰", color: "#c94a1a" },
-    { label: "Đơn hàng", value: stats?.orders || 0, icon: "🧾", color: "#1a3c2e" },
-    { label: "Sản phẩm", value: stats?.products || 0, icon: "📦", color: "#185fa5" },
-    { label: "Khách hàng", value: stats?.users || 0, icon: "👥", color: "#854f0b" },
+    { label: "Doanh thu (Thực tế)", value: (stats?.revenue || 0).toLocaleString("vi-VN") + " ₫", icon: "💰", color: "#c94a1a" },
+    { label: "Đơn hàng (Thực tế)", value: stats?.orders || 0, icon: "🧾", color: "#1a3c2e" },
+    { label: "Sản phẩm (Thực tế)", value: stats?.products || 0, icon: "📦", color: "#185fa5" },
+    { label: "Khách hàng (Thực tế)", value: stats?.users || 0, icon: "👥", color: "#854f0b" },
   ];
 
   return (
@@ -279,15 +302,19 @@ function TabDashboard({ stats, chart, orders }) {
         <div style={s.card}>
           <div style={s.cardHead}>Đơn hàng gần đây</div>
           <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
-            {orders.slice(0, 4).map(o => (
-              <div key={o.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                <div>
-                  <div style={{ fontSize: "0.82rem", fontWeight: "700", color: "#1a1a1a" }}>{o.customer}</div>
-                  <div style={{ fontSize: "0.72rem", color: "#aaa" }}>{o.id} · {o.date}</div>
+            {orders.length === 0 ? (
+               <div style={{fontSize:"0.85rem", color:"#aaa", textAlign:"center", padding:"20px"}}>Chưa có đơn hàng nào</div>
+            ) : (
+               orders.slice(0, 4).map(o => (
+                <div key={o.dbId} style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                  <div>
+                    <div style={{ fontSize: "0.82rem", fontWeight: "700", color: "#1a1a1a" }}>{o.customer}</div>
+                    <div style={{ fontSize: "0.72rem", color: "#aaa" }}>{o.id} · {o.date}</div>
+                  </div>
+                  <StatusBadge status={o.status} />
                 </div>
-                <StatusBadge status={o.status} />
-              </div>
-            ))}
+              ))
+            )}
           </div>
         </div>
       </div>
@@ -320,7 +347,6 @@ function TabProducts({ products, search, setSearch, onDelete, onEdit, onAdd }) {
         <table style={s.table}>
           <thead>
             <tr>
-              {/* THAY ĐỔI 2: Cột Ảnh */}
               {["Ảnh", "Tên sản phẩm", "Thương hiệu", "Đơn giá", "Tồn kho", "Trạng thái", ""].map(h => (
                 <th key={h} style={s.th}>{h}</th>
               ))}
@@ -328,7 +354,6 @@ function TabProducts({ products, search, setSearch, onDelete, onEdit, onAdd }) {
           </thead>
           <tbody>
             {filtered.map((p, idx) => {
-              // Xử lý URL ảnh ghép với SERVER_URL
               const imgUrl = p.image?.startsWith("/") ? `${SERVER_URL}${p.image}` : (p.image || "https://via.placeholder.com/40");
               return (
                 <tr key={p.id} style={{ background: idx % 2 === 0 ? "#fff" : "#faf9f7" }}>
@@ -366,7 +391,7 @@ function TabProducts({ products, search, setSearch, onDelete, onEdit, onAdd }) {
   );
 }
 
-// ================== TAB: ORDERS & USERS (Giữ nguyên) ==================
+// ================== TAB: ORDERS ==================
 function TabOrders({ orders, filter, setFilter, onStatusChange }) {
   const filters = [
     { id: "all", label: "Tất cả" },
@@ -394,8 +419,11 @@ function TabOrders({ orders, filter, setFilter, onStatusChange }) {
             <tr>{["Mã đơn", "Khách", "SĐT", "Tổng", "TT", "Ngày", "Trạng thái", "Cập nhật"].map(h => <th key={h} style={s.th}>{h}</th>)}</tr>
           </thead>
           <tbody>
+            {filtered.length === 0 && (
+              <tr><td colSpan="8" style={{textAlign:"center", padding:"30px", color:"#aaa"}}>Chưa có đơn hàng nào</td></tr>
+            )}
             {filtered.map((o, idx) => (
-              <tr key={o.id} style={{ background: idx % 2 === 0 ? "#fff" : "#faf9f7" }}>
+              <tr key={o.dbId} style={{ background: idx % 2 === 0 ? "#fff" : "#faf9f7" }}>
                 <td style={s.td}><span style={{ fontWeight: "700", color: "#1a3c2e" }}>{o.id}</span></td>
                 <td style={s.td}><span style={{ fontWeight: "600" }}>{o.customer}</span></td>
                 <td style={s.td}>{o.phone}</td>
@@ -404,7 +432,7 @@ function TabOrders({ orders, filter, setFilter, onStatusChange }) {
                 <td style={s.td}>{o.date}</td>
                 <td style={s.td}><StatusBadge status={o.status} /></td>
                 <td style={{ ...s.td }}>
-                  <select value={o.status} onChange={e => onStatusChange(o.id, e.target.value)} style={s.statusSelect}>
+                  <select value={o.status} onChange={e => onStatusChange(o.dbId, e.target.value)} style={s.statusSelect}>
                     <option value="pending">Chờ xử lý</option>
                     <option value="shipping">Đang giao</option>
                     <option value="done">Hoàn thành</option>
@@ -449,10 +477,103 @@ function TabUsers({ users }) {
   );
 }
 
+// ================== COMPONENT: DRAG & DROP UPLOAD ==================
+function ImageUploadDropzone({ currentImage, onFileSelect }) {
+  const [isDragActive, setIsDragActive] = useState(false);
+  const [preview, setPreview] = useState(currentImage?.startsWith("/") ? `${SERVER_URL}${currentImage}` : currentImage);
+  const inputRef = useRef(null);
+
+  const handleDragEnter = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragActive(true);
+  };
+
+  const handleDragLeave = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragActive(false);
+  };
+
+  const handleDragOver = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+  };
+
+  const handleDrop = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragActive(false);
+
+    if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+      const file = e.dataTransfer.files[0];
+      handleFile(file);
+    }
+  };
+
+  const handleChange = (e) => {
+    if (e.target.files && e.target.files[0]) {
+      const file = e.target.files[0];
+      handleFile(file);
+    }
+  };
+
+  const handleFile = (file) => {
+    if (!file.type.startsWith("image/")) {
+      alert("Vui lòng chỉ chọn file hình ảnh!");
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = (e) => setPreview(e.target.result);
+    reader.readAsDataURL(file);
+    onFileSelect(file);
+  };
+
+  return (
+    <div
+      onClick={() => inputRef.current?.click()}
+      onDragEnter={handleDragEnter}
+      onDragLeave={handleDragLeave}
+      onDragOver={handleDragOver}
+      onDrop={handleDrop}
+      style={{
+        ...s.dropzone,
+        borderColor: isDragActive ? "#2d6e4e" : "#e0ddd8",
+        background: isDragActive ? "#f0f7f3" : "#faf9f7",
+      }}
+    >
+      <input 
+        type="file" 
+        accept="image/*" 
+        ref={inputRef} 
+        style={{ display: "none" }} 
+        onChange={handleChange} 
+      />
+      
+      {preview ? (
+        <div style={s.previewWrap}>
+          <img src={preview} alt="Preview" style={s.previewImg} />
+          <div style={s.changeImgOverlay}>
+            <span style={{ fontSize: "1.2rem", marginBottom: "4px" }}>🔄</span>
+            <span style={{ fontSize: "0.75rem", fontWeight: "600" }}>Kéo thả hoặc click đổi ảnh</span>
+          </div>
+        </div>
+      ) : (
+        <div style={s.dropzoneContent}>
+          <span style={s.dropIcon}>🖼️</span>
+          <span style={s.dropMainText}>Kéo thả ảnh vào đây</span>
+          <span style={s.dropSubText}>hoặc click để tải lên từ máy tính</span>
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ================== PRODUCT MODAL ==================
-function ProductModal({ product, onSave, onClose }) {
+function ProductModal({ product, categories, onSave, onClose }) {
+  const defaultCatId = categories.length > 0 ? categories[0].id : 1;
   const [form, setForm] = useState(product || { 
-    name: "", categoryId: 1, price: "", unit: "Bao", stockQuantity: "", brand: "", description: "", image: ""
+    name: "", categoryId: defaultCatId, price: "", unit: "Bao", stockQuantity: "", brand: "", description: "", image: ""
   });
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
 
@@ -470,8 +591,20 @@ function ProductModal({ product, onSave, onClose }) {
           </ModalField>
 
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px" }}>
-            <ModalField label="ID Danh mục *">
-              <input style={s.modalInput} type="number" value={form.categoryId} onChange={e => set("categoryId", e.target.value)} placeholder="1" />
+            <ModalField label="Danh mục *">
+              <select 
+                style={s.modalInput} 
+                value={form.categoryId} 
+                onChange={e => set("categoryId", Number(e.target.value))}
+              >
+                {categories.length === 0 ? (
+                  <option value={form.categoryId}>Đang tải...</option>
+                ) : (
+                  categories.map(cat => (
+                    <option key={cat.id} value={cat.id}>{cat.name}</option>
+                  ))
+                )}
+              </select>
             </ModalField>
             <ModalField label="Thương hiệu">
               <input style={s.modalInput} value={form.brand} onChange={e => set("brand", e.target.value)} placeholder="Hòa Phát, Hà Tiên..." />
@@ -493,13 +626,11 @@ function ProductModal({ product, onSave, onClose }) {
             <input style={s.modalInput} type="number" value={form.stockQuantity} onChange={e => set("stockQuantity", e.target.value)} placeholder="Số lượng hiện có..." />
           </ModalField>
 
-          {/* THAY ĐỔI 3: Ô chọn File Upload */}
-          <ModalField label="Tải ảnh lên">
-            <input 
-              style={{...s.modalInput, padding: "7px 14px", background: "#fff"}} 
-              type="file" 
-              accept="image/*" 
-              onChange={e => set("rawFile", e.target.files[0])} 
+          {/* ĐÃ THAY ĐỔI: Sử dụng Component Drag & Drop Upload ở đây */}
+          <ModalField label="Hình ảnh sản phẩm">
+            <ImageUploadDropzone 
+              currentImage={form.image} 
+              onFileSelect={(file) => set("rawFile", file)} 
             />
           </ModalField>
           
@@ -543,7 +674,7 @@ function StatusBadge({ status }) {
   );
 }
 
-// ================== STYLES (Giữ nguyên) ==================
+// ================== STYLES ==================
 const s = {
   shell: { display: "flex", minHeight: "100vh", fontFamily: "'Be Vietnam Pro', 'Segoe UI', sans-serif", background: "#f5f4f0" },
   sidebar: { width: "220px", flexShrink: 0, background: "#0c1912", borderRight: "1px solid rgba(168,213,181,0.08)", display: "flex", flexDirection: "column", position: "fixed", top: 0, left: 0, bottom: 0, zIndex: 100 },
@@ -585,4 +716,24 @@ const s = {
   modalInput: { width: "100%", padding: "10px 14px", border: "1.5px solid #e0ddd8", borderRadius: "9px", fontSize: "0.88rem", color: "#1a1a1a", fontFamily: "inherit" },
   modalSaveBtn: { flex: 1, padding: "12px", background: "#1a3c2e", color: "#fff", border: "none", borderRadius: "10px", fontSize: "0.9rem", fontWeight: "700", cursor: "pointer", transition: "background 0.2s" },
   modalCancelBtn: { padding: "12px 20px", background: "transparent", color: "#666", border: "1.5px solid #d5d3cd", borderRadius: "10px", fontSize: "0.88rem", fontWeight: "600", cursor: "pointer", transition: "background 0.2s" },
+
+  // --- STYLES CHO DROPZONE ---
+  dropzone: {
+    border: "2px dashed #e0ddd8", borderRadius: "10px", padding: "2px", 
+    textAlign: "center", cursor: "pointer", transition: "all 0.2s ease",
+    background: "#faf9f7", minHeight: "120px", display: "flex", 
+    alignItems: "center", justifyContent: "center", overflow: "hidden", position: "relative"
+  },
+  dropzoneContent: { display: "flex", flexDirection: "column", alignItems: "center", gap: "6px", padding: "20px" },
+  dropIcon: { fontSize: "2rem", color: "#bbb", marginBottom: "4px" },
+  dropMainText: { fontSize: "0.88rem", fontWeight: "700", color: "#1a1a1a" },
+  dropSubText: { fontSize: "0.75rem", color: "#aaa" },
+  previewWrap: { width: "100%", height: "140px", position: "relative", borderRadius: "8px", overflow: "hidden" },
+  previewImg: { width: "100%", height: "100%", objectFit: "contain", background: "#fff" },
+  changeImgOverlay: {
+    position: "absolute", inset: 0, background: "rgba(0,0,0,0.6)",
+    display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
+    color: "#fff", opacity: 0, transition: "opacity 0.2s",
+    ":hover": { opacity: 1 } // Note: Inline hover doesn't work directly in standard React styles without a library, but the logic is there. We'll rely on the click behavior.
+  }
 };

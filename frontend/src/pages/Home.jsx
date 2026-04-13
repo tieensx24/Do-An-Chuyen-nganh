@@ -191,6 +191,7 @@ export default function Home() {
           </button>
 
           <button
+            onClick={() => navigate('/products')}
             onMouseDown={(e) => e.stopPropagation()}
             onMouseOver={(e) => { e.currentTarget.style.background = 'rgba(255,255,255,0.15)'; e.currentTarget.style.transform = 'translateY(-2px)'; }}
             onMouseOut={(e) => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.transform = 'translateY(0)'; }}

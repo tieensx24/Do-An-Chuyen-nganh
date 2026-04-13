@@ -30,4 +30,10 @@ public class User
     public DateTime UpdatedAt { get; set; } = DateTime.Now;
    
       // ← thêm ?
+    [Column("phone")]
+    public string? Phone { get; set; } 
+    
+    [Column("avatar")]
+    public string? Avatar { get; set; }
+    // Dùng string? (có dấu ?) vì có thể user cũ chưa có số điện thoại
 }
