@@ -43,13 +43,34 @@ export default function AdminDashboard() {
   const [orders, setOrders] = useState([]);
   const [users, setUsers] = useState([]);
   const [categories, setCategories] = useState([]); 
+  const [coupons, setCoupons] = useState([]);
   const [loading, setLoading] = useState(true);
   const [productModal, setProductModal] = useState(null); 
+  const [couponModal, setCouponModal] = useState(false);
   const [search, setSearch] = useState("");
   const [orderFilter, setOrderFilter] = useState("all");
+  const [adminUser, setAdminUser] = useState(() => {
+    const saved = localStorage.getItem("user");
+    return saved ? JSON.parse(saved) : null;
+  });
 
   useEffect(() => {
     loadAll();
+  }, []);
+
+  useEffect(() => {
+    const syncAdminUser = () => {
+      const saved = localStorage.getItem("user");
+      setAdminUser(saved ? JSON.parse(saved) : null);
+    };
+
+    window.addEventListener("storage", syncAdminUser);
+    window.addEventListener("user-updated", syncAdminUser);
+
+    return () => {
+      window.removeEventListener("storage", syncAdminUser);
+      window.removeEventListener("user-updated", syncAdminUser);
+    };
   }, []);
 
   const loadAll = async () => {
@@ -86,6 +107,9 @@ export default function AdminDashboard() {
 
       const c = await apiFetch("/category");
       setCategories(c);
+
+      const cp = await apiFetch("/coupon");
+      setCoupons(cp);
 
       const totalRevenue = formattedOrders
         .filter(ord => ord.status === "done") 
@@ -170,12 +194,70 @@ export default function AdminDashboard() {
     }
   };
 
-  const navItems = [
+/*  const navItems = [
     { id: "dashboard", icon: "▦", label: "Tổng quan" },
     { id: "products", icon: "📦", label: "Sản phẩm" },
     { id: "orders", icon: "🧾", label: "Đơn hàng" },
     { id: "users", icon: "👥", label: "Người dùng" },
   ];
+
+*/
+  const saveCoupon = async (data) => {
+    try {
+      const res = await fetch(`${API_BASE}/coupon`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+      });
+
+      const text = await res.text();
+      const payload = text ? JSON.parse(text) : {};
+
+      if (!res.ok) {
+        alert(payload.message || "Lỗi khi tạo mã giảm giá!");
+        return;
+      }
+
+      await loadAll();
+      setCouponModal(false);
+      alert("Tạo mã giảm giá thành công!");
+    } catch (err) {
+      console.error(err);
+      alert("Không thể kết nối server khi tạo mã giảm giá!");
+    }
+  };
+
+  const updateCouponStatus = async (id, isActive) => {
+    try {
+      await apiFetch(`/coupon/${id}/status`, {
+        method: "PUT",
+        body: JSON.stringify(isActive),
+      });
+      setCoupons(prev => prev.map(c => c.id === id ? { ...c, isActive } : c));
+    } catch (err) {
+      console.error(err);
+      alert("Lỗi cập nhật trạng thái mã giảm giá!");
+    }
+  };
+
+  const navItems = [
+    { id: "dashboard", icon: "◦", label: "Tổng quan" },
+    { id: "products", icon: "📦", label: "Sản phẩm" },
+    { id: "orders", icon: "🧾", label: "Đơn hàng" },
+    { id: "coupons", icon: "🏷️", label: "Mã giảm giá" },
+    { id: "users", icon: "👥", label: "Người dùng" },
+  ];
+
+  const getAvatarSrc = (path) => {
+    if (!path) return null;
+    if (path.startsWith("data:") || path.startsWith("http")) return path;
+    return `${SERVER_URL}${path}`;
+  };
+
+  const adminDisplayName = adminUser?.fullName || "Admin";
+  const adminDisplayEmail = adminUser?.email || "admin@kientao.vn";
+  const adminInitial = adminDisplayName.trim().charAt(0).toUpperCase() || "A";
+  const adminAvatarSrc = getAvatarSrc(adminUser?.avatar);
 
   return (
     <div style={s.shell}>
@@ -204,10 +286,16 @@ export default function AdminDashboard() {
 
         <div style={s.sidebarFooter}>
           <div style={s.adminBadge}>
-            <div style={s.adminAvatar}>A</div>
+            <div style={s.adminAvatar}>
+              {adminAvatarSrc ? (
+                <img src={adminAvatarSrc} alt={adminDisplayName} style={s.adminAvatarImg} />
+              ) : (
+                adminInitial
+              )}
+            </div>
             <div>
-              <div style={{ fontSize: "0.82rem", fontWeight: "700", color: "#fff" }}>Admin</div>
-              <div style={{ fontSize: "0.7rem", color: "rgba(255,255,255,0.4)" }}>admin@kientao.vn</div>
+              <div style={{ fontSize: "0.82rem", fontWeight: "700", color: "#fff" }}>{adminDisplayName}</div>
+              <div style={{ fontSize: "0.7rem", color: "rgba(255,255,255,0.4)" }}>{adminDisplayEmail}</div>
             </div>
           </div>
         </div>
@@ -232,6 +320,7 @@ export default function AdminDashboard() {
             {tab === "dashboard" && <TabDashboard stats={stats} chart={chart} orders={orders} />}
             {tab === "products" && <TabProducts products={products} search={search} setSearch={setSearch} onDelete={deleteProduct} onEdit={p => setProductModal(p)} onAdd={() => setProductModal("add")} />}
             {tab === "orders" && <TabOrders orders={orders} filter={orderFilter} setFilter={setOrderFilter} onStatusChange={updateOrderStatus} />}
+            {tab === "coupons" && <TabCoupons coupons={coupons} onAdd={() => setCouponModal(true)} onToggleStatus={updateCouponStatus} />}
             {tab === "users" && <TabUsers users={users} />}
           </div>
         )}
@@ -243,6 +332,13 @@ export default function AdminDashboard() {
           categories={categories}
           onSave={saveProduct}
           onClose={() => setProductModal(null)}
+        />
+      )}
+
+      {couponModal && (
+        <CouponModal
+          onSave={saveCoupon}
+          onClose={() => setCouponModal(false)}
         />
       )}
 
@@ -477,6 +573,74 @@ function TabUsers({ users }) {
   );
 }
 
+function TabCoupons({ coupons, onAdd, onToggleStatus }) {
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: "12px" }}>
+        <div>
+          <div style={{ fontSize: "0.95rem", fontWeight: "800", color: "#1a1a1a" }}>Quản lý mã giảm giá</div>
+          <div style={{ fontSize: "0.8rem", color: "#999", marginTop: "4px" }}>Tạo và bật tắt mã cho từng chiến dịch bán hàng.</div>
+        </div>
+        <button style={s.addBtn} onClick={onAdd}>+ Tạo mã giảm giá</button>
+      </div>
+
+      <div style={s.card}>
+        <table style={s.table}>
+          <thead>
+            <tr>{["Mã", "Loại", "Giá trị", "Đơn tối thiểu", "Giới hạn", "Thời gian", "Đã dùng", "Trạng thái"].map(h => <th key={h} style={s.th}>{h}</th>)}</tr>
+          </thead>
+          <tbody>
+            {coupons.length === 0 && (
+              <tr><td colSpan="8" style={{ textAlign: "center", padding: "30px", color: "#aaa" }}>Chưa có mã giảm giá nào</td></tr>
+            )}
+            {coupons.map((coupon, idx) => (
+              <tr key={coupon.id} style={{ background: idx % 2 === 0 ? "#fff" : "#faf9f7" }}>
+                <td style={s.td}>
+                  <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
+                    <span style={s.couponCode}>{coupon.code}</span>
+                    {coupon.maxDiscount && (
+                      <span style={s.couponMeta}>Giảm tối đa: {Number(coupon.maxDiscount).toLocaleString("vi-VN")} ₫</span>
+                    )}
+                  </div>
+                </td>
+                <td style={s.td}>
+                  <span style={coupon.type === "percent" ? s.percentBadge : s.fixedBadge}>
+                    {coupon.type === "percent" ? "Phần trăm" : "Tiền mặt"}
+                  </span>
+                </td>
+                <td style={s.td}>
+                  <span style={{ fontWeight: "700", color: "#1a1a1a" }}>
+                    {coupon.type === "percent"
+                      ? `${Number(coupon.value)}%`
+                      : `${Number(coupon.value).toLocaleString("vi-VN")} ₫`}
+                  </span>
+                </td>
+                <td style={s.td}>{Number(coupon.minOrder).toLocaleString("vi-VN")} ₫</td>
+                <td style={s.td}>{coupon.usageLimit ?? "Không giới hạn"}</td>
+                <td style={s.td}>
+                  <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
+                    <span>{new Date(coupon.startDate).toLocaleDateString("vi-VN")}</span>
+                    <span style={s.couponMeta}>đến {new Date(coupon.endDate).toLocaleDateString("vi-VN")}</span>
+                  </div>
+                </td>
+                <td style={s.td}><span style={{ fontWeight: "700" }}>{coupon.usedCount}</span></td>
+                <td style={s.td}>
+                  <button
+                    style={coupon.isActive ? s.activeBtn : s.inactiveBtn}
+                    onClick={() => onToggleStatus(coupon.id, !coupon.isActive)}
+                  >
+                    {coupon.isActive ? "Đang bật" : "Đang tắt"}
+                  </button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
 // ================== COMPONENT: DRAG & DROP UPLOAD ==================
 function ImageUploadDropzone({ currentImage, onFileSelect }) {
   const [isDragActive, setIsDragActive] = useState(false);
@@ -650,6 +814,108 @@ function ProductModal({ product, categories, onSave, onClose }) {
   );
 }
 
+function CouponModal({ onSave, onClose }) {
+  const now = new Date();
+  const nextWeek = new Date(now);
+  nextWeek.setDate(nextWeek.getDate() + 7);
+
+  const toLocalDateTime = (date) => {
+    const offset = date.getTimezoneOffset();
+    const local = new Date(date.getTime() - offset * 60000);
+    return local.toISOString().slice(0, 16);
+  };
+
+  const [form, setForm] = useState({
+    code: "",
+    type: "fixed",
+    value: "",
+    minOrder: "0",
+    maxDiscount: "",
+    usageLimit: "",
+    startDate: toLocalDateTime(now),
+    endDate: toLocalDateTime(nextWeek),
+    isActive: true,
+  });
+
+  const set = (key, value) => setForm(prev => ({ ...prev, [key]: value }));
+
+  const handleSave = () => {
+    onSave({
+      code: form.code,
+      type: form.type,
+      value: Number(form.value),
+      minOrder: Number(form.minOrder || 0),
+      maxDiscount: form.maxDiscount ? Number(form.maxDiscount) : null,
+      usageLimit: form.usageLimit ? Number(form.usageLimit) : null,
+      startDate: form.startDate,
+      endDate: form.endDate,
+      isActive: form.isActive,
+    });
+  };
+
+  return (
+    <div style={s.modalOverlay} onClick={onClose}>
+      <div style={s.modal} onClick={e => e.stopPropagation()}>
+        <div style={s.modalHead}>
+          <span style={s.modalTitle}>Tạo mã giảm giá</span>
+          <button style={s.modalClose} onClick={onClose}>✕</button>
+        </div>
+
+        <div style={{ display: "flex", flexDirection: "column", gap: "14px", padding: "24px", maxHeight: "70vh", overflowY: "auto" }}>
+          <div style={{ display: "grid", gridTemplateColumns: "1.3fr 1fr", gap: "12px" }}>
+            <ModalField label="Mã coupon *">
+              <input style={s.modalInput} value={form.code} onChange={e => set("code", e.target.value.toUpperCase())} placeholder="VD: GIAM10" />
+            </ModalField>
+            <ModalField label="Loại mã *">
+              <select style={s.modalInput} value={form.type} onChange={e => set("type", e.target.value)}>
+                <option value="fixed">Giảm tiền</option>
+                <option value="percent">Giảm phần trăm</option>
+              </select>
+            </ModalField>
+          </div>
+
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px" }}>
+            <ModalField label={form.type === "percent" ? "Giá trị (%) *" : "Giá trị (₫) *"}>
+              <input style={s.modalInput} type="number" min="0" value={form.value} onChange={e => set("value", e.target.value)} placeholder="0" />
+            </ModalField>
+            <ModalField label="Đơn tối thiểu (₫)">
+              <input style={s.modalInput} type="number" min="0" value={form.minOrder} onChange={e => set("minOrder", e.target.value)} placeholder="0" />
+            </ModalField>
+          </div>
+
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px" }}>
+            <ModalField label="Giảm tối đa (₫)">
+              <input style={s.modalInput} type="number" min="0" value={form.maxDiscount} onChange={e => set("maxDiscount", e.target.value)} placeholder="Bỏ trống nếu không giới hạn" />
+            </ModalField>
+            <ModalField label="Giới hạn lượt dùng">
+              <input style={s.modalInput} type="number" min="0" value={form.usageLimit} onChange={e => set("usageLimit", e.target.value)} placeholder="Bỏ trống nếu không giới hạn" />
+            </ModalField>
+          </div>
+
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px" }}>
+            <ModalField label="Ngày bắt đầu *">
+              <input style={s.modalInput} type="datetime-local" value={form.startDate} onChange={e => set("startDate", e.target.value)} />
+            </ModalField>
+            <ModalField label="Ngày kết thúc *">
+              <input style={s.modalInput} type="datetime-local" value={form.endDate} onChange={e => set("endDate", e.target.value)} />
+            </ModalField>
+          </div>
+
+          <label style={{ display: "flex", alignItems: "center", gap: "8px", cursor: "pointer" }}>
+            <input type="checkbox" checked={form.isActive} onChange={e => set("isActive", e.target.checked)} style={{ accentColor: "#1a3c2e", width: "15px", height: "15px" }} />
+            <span style={{ fontSize: "0.82rem", color: "#555", fontWeight: "600" }}>Kích hoạt ngay sau khi tạo</span>
+          </label>
+        </div>
+
+        <div style={{ padding: "16px 24px", display: "flex", gap: "10px", borderTop: "1px solid #f0eeea" }}>
+          <button style={s.modalSaveBtn} onClick={handleSave}>Lưu mã giảm giá</button>
+          <button style={s.modalCancelBtn} onClick={onClose}>Hủy</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function ModalField({ label, children }) {
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: "5px" }}>
@@ -686,7 +952,8 @@ const s = {
   navBtn: { display: "flex", alignItems: "center", gap: "10px", width: "100%", padding: "11px 20px", border: "none", cursor: "pointer", fontSize: "0.85rem", fontWeight: "600", transition: "all 0.2s", textAlign: "left", letterSpacing: "0.01em" },
   sidebarFooter: { padding: "16px 20px", borderTop: "1px solid rgba(255,255,255,0.06)" },
   adminBadge: { display: "flex", alignItems: "center", gap: "10px" },
-  adminAvatar: { width: "32px", height: "32px", borderRadius: "50%", background: "#1a3c2e", color: "#a8d5b5", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "0.8rem", fontWeight: "800", flexShrink: 0 },
+  adminAvatar: { width: "32px", height: "32px", borderRadius: "50%", background: "#1a3c2e", color: "#a8d5b5", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "0.8rem", fontWeight: "800", flexShrink: 0, overflow: "hidden", border: "1px solid rgba(168,213,181,0.22)" },
+  adminAvatarImg: { width: "100%", height: "100%", objectFit: "cover" },
   main: { marginLeft: "220px", flex: 1, display: "flex", flexDirection: "column", minHeight: "100vh" },
   topbar: { display: "flex", justifyContent: "space-between", alignItems: "center", padding: "20px 24px", background: "#fff", borderBottom: "1px solid #ebebeb" },
   pageTitle: { fontSize: "1.2rem", fontWeight: "800", color: "#1a1a1a" },
@@ -705,6 +972,12 @@ const s = {
   th: { padding: "10px 14px", textAlign: "left", fontSize: "0.72rem", fontWeight: "700", color: "#aaa", letterSpacing: "0.06em", textTransform: "uppercase", borderBottom: "1px solid #f0eeea" },
   td: { padding: "12px 14px", color: "#444", verticalAlign: "middle" },
   categoryPill: { fontSize: "0.72rem", fontWeight: "700", background: "#e6f1fb", color: "#185fa5", padding: "3px 10px", borderRadius: "999px" },
+  couponCode: { fontSize: "0.82rem", fontWeight: "800", color: "#1a3c2e", letterSpacing: "0.08em" },
+  couponMeta: { fontSize: "0.72rem", color: "#999" },
+  percentBadge: { fontSize: "0.72rem", fontWeight: "700", background: "#eaf3de", color: "#3b6d11", padding: "3px 10px", borderRadius: "999px" },
+  fixedBadge: { fontSize: "0.72rem", fontWeight: "700", background: "#e6f1fb", color: "#185fa5", padding: "3px 10px", borderRadius: "999px" },
+  activeBtn: { padding: "6px 12px", background: "#eaf3de", color: "#3b6d11", border: "none", borderRadius: "8px", cursor: "pointer", fontSize: "0.76rem", fontWeight: "700" },
+  inactiveBtn: { padding: "6px 12px", background: "#fcebeb", color: "#a32d2d", border: "none", borderRadius: "8px", cursor: "pointer", fontSize: "0.76rem", fontWeight: "700" },
   editBtn: { padding: "5px 12px", background: "#e6f1fb", color: "#185fa5", border: "none", borderRadius: "6px", cursor: "pointer", fontSize: "0.78rem", fontWeight: "700", marginRight: "6px" },
   delBtn: { padding: "5px 12px", background: "#fcebeb", color: "#a32d2d", border: "none", borderRadius: "6px", cursor: "pointer", fontSize: "0.78rem", fontWeight: "700" },
   statusSelect: { padding: "5px 10px", border: "1.5px solid #e0ddd8", borderRadius: "7px", fontSize: "0.78rem", color: "#444", background: "#fff", cursor: "pointer", fontFamily: "inherit" },

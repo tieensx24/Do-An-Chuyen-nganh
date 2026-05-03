@@ -7,7 +7,7 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddDbContext<AppDbContext>(options =>
     options.UseMySQL(builder.Configuration.GetConnectionString("DefaultConnection")!));
 
-// 2. Cấu hình CORS (Mở "AllowAll" để cả React và Swagger đều gọi API thoải mái)
+// 2. CORS vẫn phải giữ để React gọi được API
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowAll", policy =>
@@ -22,23 +22,15 @@ builder.Services.AddSwaggerGen();
 
 var app = builder.Build();
 
-// ==========================================
-// 3. KHU VỰC MIDDLEWARE (THỨ TỰ CỰC KỲ QUAN TRỌNG)
-// ==========================================
-
-// Bật Swagger
+// 3. Middleware
 app.UseSwagger();
 app.UseSwaggerUI();
 
-// Bật CORS (Phải nằm trước StaticFiles và Authorization)
 app.UseCors("AllowAll"); 
-
-// Bật đọc file tĩnh (Để load ảnh từ wwwroot)
 app.UseStaticFiles(); 
 
+// XÓA UseAuthentication
 app.UseAuthorization();
 
 app.MapControllers();
-
-// Lệnh Run CHỈ ĐƯỢC GỌI 1 LẦN DUY NHẤT ở cuối cùng
 app.Run();

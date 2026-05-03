@@ -1,21 +1,19 @@
-import { useState, useEffect } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { useState, useEffect } from "react";
+import { Link, useNavigate } from "react-router-dom";
 
 export default function Login() {
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [showPass, setShowPass] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
+  const [error, setError] = useState("");
 
   const navigate = useNavigate();
 
-  // --- TÍNH NĂNG BẢO VỆ: CHẶN NGƯỜI DÙNG ĐÃ ĐĂNG NHẬP ---
   useEffect(() => {
     const saved = localStorage.getItem("user");
     if (saved) {
       const user = JSON.parse(saved);
-      // Nếu đã đăng nhập, tự động đá về đúng trang
       if (user.role === "admin") navigate("/admin");
       else navigate("/");
     }
@@ -25,39 +23,35 @@ export default function Login() {
     e.preventDefault();
     setLoading(true);
     setError("");
-    
+
     try {
       const res = await fetch("http://localhost:5261/api/auth/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email, password }),
       });
-      
+
       const data = await res.json();
-      
+
       if (!res.ok) {
         setError(data.message || "Đăng nhập thất bại!");
         setLoading(false);
         return;
       }
 
-      // 1. Lưu thông tin người dùng vào localStorage
       localStorage.setItem("user", JSON.stringify(data));
-      
-      // Lưu thêm token riêng lẻ (giả lập) để hàm ProtectedAdminRoute hoạt động trơn tru
+
       if (data.role === "admin") {
         localStorage.setItem("adminToken", "admin-logged-in");
       }
 
-      // 2. LOGIC ĐIỀU HƯỚNG DỰA TRÊN ROLE
       if (data.role === "admin") {
-        navigate("/admin"); // Chuyển hướng đến trang quản trị
+        navigate("/admin");
       } else {
-        navigate("/");      // Chuyển hướng về trang chủ khách hàng
+        navigate("/");
       }
-
-    } catch (err) {
-      setError("Không thể kết nối server! Vui lòng kiểm tra Docker.");
+    } catch {
+      setError("Không thể kết nối server! Vui lòng kiểm tra backend.");
     } finally {
       setLoading(false);
     }
@@ -65,7 +59,6 @@ export default function Login() {
 
   return (
     <div style={s.page}>
-      {/* Left panel */}
       <div style={s.left}>
         <div style={s.leftOverlay} />
         <div style={s.leftContent}>
@@ -77,7 +70,11 @@ export default function Login() {
             </div>
           </div>
           <div style={s.leftBody}>
-            <h2 style={s.leftTitle}>Chào mừng<br />trở lại!</h2>
+            <h2 style={s.leftTitle}>
+              Chào mừng
+              <br />
+              trở lại!
+            </h2>
             <p style={s.leftDesc}>
               Đăng nhập để theo dõi đơn hàng, xem lịch sử mua hàng và nhận ưu đãi dành riêng cho bạn.
             </p>
@@ -97,7 +94,6 @@ export default function Login() {
         </div>
       </div>
 
-      {/* Right panel */}
       <div style={s.right}>
         <div style={s.formBox}>
           <div style={s.formHeader}>
@@ -107,7 +103,6 @@ export default function Login() {
           </div>
 
           <form onSubmit={handleLogin} style={s.form}>
-            {/* Email */}
             <div style={s.field}>
               <label style={s.label}>Email</label>
               <div style={s.inputWrap}>
@@ -119,17 +114,18 @@ export default function Login() {
                   onChange={(e) => setEmail(e.target.value)}
                   required
                   style={s.input}
-                  onFocus={(e) => e.currentTarget.parentElement.style.borderColor = "#2d6e4e"}
-                  onBlur={(e) => e.currentTarget.parentElement.style.borderColor = "#e0ddd8"}
+                  onFocus={(e) => (e.currentTarget.parentElement.style.borderColor = "#2d6e4e")}
+                  onBlur={(e) => (e.currentTarget.parentElement.style.borderColor = "#e0ddd8")}
                 />
               </div>
             </div>
 
-            {/* Password */}
             <div style={s.field}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                 <label style={s.label}>Mật khẩu</label>
-                <a href="#" style={s.forgot}>Quên mật khẩu?</a>
+                <Link to="/forgot-password" style={s.forgot}>
+                  Quên mật khẩu?
+                </Link>
               </div>
               <div style={s.inputWrap}>
                 <span style={s.inputIcon}>🔒</span>
@@ -140,8 +136,8 @@ export default function Login() {
                   onChange={(e) => setPassword(e.target.value)}
                   required
                   style={{ ...s.input, paddingRight: "44px" }}
-                  onFocus={(e) => e.currentTarget.parentElement.style.borderColor = "#2d6e4e"}
-                  onBlur={(e) => e.currentTarget.parentElement.style.borderColor = "#e0ddd8"}
+                  onFocus={(e) => (e.currentTarget.parentElement.style.borderColor = "#2d6e4e")}
+                  onBlur={(e) => (e.currentTarget.parentElement.style.borderColor = "#e0ddd8")}
                 />
                 <button type="button" onClick={() => setShowPass(!showPass)} style={s.eyeBtn}>
                   {showPass ? "🙈" : "👁"}
@@ -149,7 +145,6 @@ export default function Login() {
               </div>
             </div>
 
-            {/* Remember me */}
             <div style={s.rememberRow}>
               <label style={s.checkLabel}>
                 <input type="checkbox" style={{ accentColor: "#1a3c2e", width: "15px", height: "15px" }} />
@@ -157,14 +152,8 @@ export default function Login() {
               </label>
             </div>
 
-            {/* Error box */}
-            {error && (
-              <div style={s.errorBox}>
-                ⚠ {error}
-              </div>
-            )}
+            {error && <div style={s.errorBox}>⚠ {error}</div>}
 
-            {/* Submit */}
             <button
               type="submit"
               disabled={loading}
@@ -173,26 +162,30 @@ export default function Login() {
                 opacity: loading ? 0.8 : 1,
                 cursor: loading ? "not-allowed" : "pointer",
               }}
-              onMouseOver={(e) => { if (!loading) e.currentTarget.style.background = "#2d6e4e"; }}
-              onMouseOut={(e) => { if (!loading) e.currentTarget.style.background = "#1a3c2e"; }}
+              onMouseOver={(e) => {
+                if (!loading) e.currentTarget.style.background = "#2d6e4e";
+              }}
+              onMouseOut={(e) => {
+                if (!loading) e.currentTarget.style.background = "#1a3c2e";
+              }}
             >
               {loading ? (
                 <span style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: "8px" }}>
                   <span style={s.spinner} />
                   Đang xử lý...
                 </span>
-              ) : "Đăng nhập"}
+              ) : (
+                "Đăng nhập"
+              )}
             </button>
           </form>
 
-          {/* Divider */}
           <div style={s.dividerWrap}>
             <div style={s.dividerLine} />
             <span style={s.dividerText}>hoặc</span>
             <div style={s.dividerLine} />
           </div>
 
-          {/* Register */}
           <p style={s.registerText}>
             Chưa có tài khoản?{" "}
             <Link to="/register" style={s.registerLink}>

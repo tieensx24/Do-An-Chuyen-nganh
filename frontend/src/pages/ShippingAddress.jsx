@@ -26,11 +26,11 @@ const timeSlots = [
 
 export default function ShippingAddress() {
   const navigate = useNavigate();
-  const { cartItems, clearCart } = useCart();
+  const { cartItems, appliedCoupon, clearCart, getTotalPrice, getDiscountAmount, getFinalTotal } = useCart();
 
-  const totalPrice = cartItems.reduce(
-    (total, item) => total + item.price * item.quantity, 0
-  );
+  const subtotal = getTotalPrice();
+  const discountAmount = getDiscountAmount();
+  const finalTotal = getFinalTotal();
 
   const [form, setForm] = useState({
     fullName: "", phone: "", province: "", district: "",
@@ -93,9 +93,11 @@ export default function ShippingAddress() {
       phone: form.phone,
       address: `${form.street}, ${form.ward}, ${form.district}, ${form.province}`,
       note: form.note,
+      couponId: appliedCoupon && discountAmount > 0 ? appliedCoupon.id : null,
+      discountAmount: discountAmount,
       timeSlot: form.timeSlot,
       paymentMethod: form.paymentMethod,
-      totalPrice: totalPrice,
+      totalPrice: finalTotal,
       items: cartItems.map(item => ({
         productId: item.id,
         quantity: item.quantity,
@@ -148,7 +150,7 @@ export default function ShippingAddress() {
               { label: "Địa chỉ", val: `${form.street}, ${form.ward}, ${form.district}, ${form.province}` },
               { label: "Thời gian nhận", val: timeSlots.find(t => t.id === form.timeSlot)?.label + " (" + timeSlots.find(t => t.id === form.timeSlot)?.sub + ")" },
               { label: "Thanh toán", val: form.paymentMethod === "cod" ? "💵 COD — Trả khi nhận hàng" : "🏦 Chuyển khoản ngân hàng" },
-              { label: "Tổng tiền", val: totalPrice.toLocaleString("vi-VN") + " ₫", highlight: true },
+              { label: "Tổng tiền", val: finalTotal.toLocaleString("vi-VN") + " ₫", highlight: true },
             ].map(({ label, val, highlight }) => (
               <div key={label} style={s.successRow}>
                 <span style={s.successLabel}>{label}</span>
@@ -396,7 +398,7 @@ export default function ShippingAddress() {
 
               {form.paymentMethod === "cod" && (
                 <div style={{ background: "#fdf8ee", border: "1px solid #fac775", borderRadius: "10px", padding: "12px 16px", fontSize: "0.8rem", color: "#854f0b", lineHeight: "1.6" }}>
-                  💡 Vui lòng chuẩn bị đúng số tiền <strong>{totalPrice.toLocaleString("vi-VN")} ₫</strong> khi nhận hàng. Tài xế không mang tiền thối.
+                  💡 Vui lòng chuẩn bị đúng số tiền <strong>{finalTotal.toLocaleString("vi-VN")} ₫</strong> khi nhận hàng. Tài xế không mang tiền thối.
                 </div>
               )}
               {form.paymentMethod === "transfer" && (
@@ -453,20 +455,35 @@ export default function ShippingAddress() {
               ))}
             </div>
 
+            {appliedCoupon && discountAmount > 0 && (
+              <div style={s.couponSummaryBox}>
+                <div style={s.couponSummaryCode}>{appliedCoupon.code}</div>
+                <div style={s.couponSummaryText}>
+                  Giảm {discountAmount.toLocaleString("vi-VN")} ₫ cho đơn hàng này
+                </div>
+              </div>
+            )}
+
             <div style={s.totalBox}>
               <div style={s.totalRow2}>
                 <span style={s.totalLabel}>Tạm tính</span>
-                <span style={s.totalVal2}>{totalPrice.toLocaleString("vi-VN")} ₫</span>
+                <span style={s.totalVal2}>{subtotal.toLocaleString("vi-VN")} ₫</span>
+              </div>
+              <div style={s.totalRow2}>
+                <span style={s.totalLabel}>Giảm giá</span>
+                <span style={{ ...s.totalVal2, color: discountAmount > 0 ? "#3b6d11" : "#999" }}>
+                  -{discountAmount.toLocaleString("vi-VN")} ₫
+                </span>
               </div>
               <div style={s.totalRow2}>
                 <span style={s.totalLabel}>Vận chuyển</span>
                 <span style={{ ...s.totalVal2, color: "#2d6e4e", fontWeight: "700" }}>
-                  {totalPrice >= 50000000 ? "Miễn phí" : "Báo giá sau"}
+                  {subtotal >= 50000000 ? "Miễn phí" : "Báo giá sau"}
                 </span>
               </div>
               <div style={s.grandRow}>
                 <span style={s.grandLabel}>Tổng cộng</span>
-                <span style={s.grandVal}>{totalPrice.toLocaleString("vi-VN")} ₫</span>
+                <span style={s.grandVal}>{finalTotal.toLocaleString("vi-VN")} ₫</span>
               </div>
             </div>
           </div>
@@ -569,6 +586,9 @@ const s = {
   summaryName: { fontSize: "0.83rem", fontWeight: "700", color: "#1a1a1a", marginBottom: "2px", lineHeight: "1.3" },
   summaryMeta: { fontSize: "0.75rem", color: "#aaa" },
   summaryPrice: { fontSize: "0.85rem", fontWeight: "700", color: "#c94a1a", flexShrink: 0 },
+  couponSummaryBox: { margin: "0 22px 14px", padding: "12px 14px", borderRadius: "10px", background: "#faf9f7", border: "1px solid #ebebeb" },
+  couponSummaryCode: { fontSize: "0.8rem", fontWeight: "800", color: "#1a3c2e", letterSpacing: "0.08em", marginBottom: "4px" },
+  couponSummaryText: { fontSize: "0.78rem", color: "#666" },
   totalBox: { borderTop: "1px solid #f0eeea", padding: "14px 22px", display: "flex", flexDirection: "column", gap: "8px" },
   totalRow2: { display: "flex", justifyContent: "space-between", alignItems: "center" },
   totalLabel: { fontSize: "0.83rem", color: "#777" },
