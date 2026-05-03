@@ -4,6 +4,7 @@ import { CartProvider, useCart } from "./context/CartContext";
 import Home from "./pages/Home";
 import Products from "./pages/Products";
 import Login from "./pages/Login";
+import ForgotPassword from "./pages/ForgotPassword";
 import Checkout from "./pages/Checkout";
 import Register from "./pages/Register";
 import ProductDetail from "./pages/ProductDetail";
@@ -49,6 +50,21 @@ function Navigation() {
     const saved = localStorage.getItem("user");
     setUser(saved ? JSON.parse(saved) : null);
   }, [location.pathname]);
+
+  useEffect(() => {
+    const syncUser = () => {
+      const saved = localStorage.getItem("user");
+      setUser(saved ? JSON.parse(saved) : null);
+    };
+
+    window.addEventListener("storage", syncUser);
+    window.addEventListener("user-updated", syncUser);
+
+    return () => {
+      window.removeEventListener("storage", syncUser);
+      window.removeEventListener("user-updated", syncUser);
+    };
+  }, []);
 
   const handleLogout = () => {
     if(window.confirm("Bạn muốn đăng xuất?")) {
@@ -226,6 +242,7 @@ function Layout() {
           <Route path="/products" element={<Products />} />
           <Route path="/checkout" element={<Checkout />} />
           <Route path="/login" element={<Login />} />
+          <Route path="/forgot-password" element={<ForgotPassword />} />
           <Route path="/register" element={<Register />} />
           <Route path="/product/:id" element={<ProductDetail />} />
           <Route path="/shipping" element={<ShippingAddress />} />

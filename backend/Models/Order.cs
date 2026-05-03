@@ -36,6 +36,12 @@ public class Order
     [Column("note")]
     public string? Note { get; set; }
 
+    [Column("coupon_id")]
+    public int? CouponId { get; set; }
+
+    [Column("discount_amount")]
+    public decimal DiscountAmount { get; set; }
+
     [Column("time_slot")]
     public string? TimeSlot { get; set; }
 

@@ -23,6 +23,12 @@ export default function UserProfile() {
   const [loading, setLoading] = useState(true);
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
 
+  const getAvatarSrc = (path) => {
+    if (!path) return null;
+    if (path.startsWith("data:") || path.startsWith("http")) return path;
+    return `${SERVER_URL}${path}`;
+  };
+
   useEffect(() => {
     // 1. Kiểm tra xem đã đăng nhập chưa
     const savedUser = localStorage.getItem("user");
@@ -97,10 +103,10 @@ export default function UserProfile() {
       
       // Lấy đường dẫn ảnh mới từ C# trả về (ví dụ: /uploads/avatars/abc.jpg)
       // Nối thêm địa chỉ server vào đầu để React hiển thị được
-      const fullAvatarUrl = `${SERVER_URL}${data.avatarUrl}`;
+      const avatarPath = data.avatarUrl;
 
       // Cập nhật ảnh ngay lập tức trên giao diện
-      const updatedUser = { ...user, avatar: fullAvatarUrl };
+      const updatedUser = { ...user, avatar: avatarPath };
       setUser(updatedUser);
       
       // Lưu vào LocalStorage để thanh điều hướng (Navbar) đọc được
@@ -110,6 +116,7 @@ export default function UserProfile() {
 
       // Mẹo nhỏ: Bắt buộc trình duyệt load lại 1 chút để Navbar trên cùng đổi ảnh ngay lập tức
       window.dispatchEvent(new Event("storage")); 
+      window.dispatchEvent(new Event("user-updated"));
       // window.location.reload(); // Có thể bỏ dòng này đi nếu Event storage hoạt động tốt
 
     } catch (err) {
@@ -134,7 +141,7 @@ export default function UserProfile() {
               {uploadingAvatar ? (
                 <div style={s.avatarPlaceholder}>...</div>
               ) : user.avatar ? (
-                <img src={user.avatar} alt="Avatar" style={s.avatarImg} />
+                <img src={getAvatarSrc(user.avatar)} alt="Avatar" style={s.avatarImg} />
               ) : (
                 <div style={s.avatarPlaceholder}>
                   {user.fullName ? user.fullName.charAt(0).toUpperCase() : "U"}
