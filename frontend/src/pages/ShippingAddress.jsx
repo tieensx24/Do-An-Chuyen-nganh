@@ -1,6 +1,7 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useCart } from "../context/CartContext";
+import LocationPickerMap from "../components/LocationPickerMap";
 
 const provinces = [
   "An Giang", "Bà Rịa - Vũng Tàu", "Bắc Giang", "Bắc Kạn", "Bạc Liêu",
@@ -24,9 +25,57 @@ const timeSlots = [
   { id: "evening", label: "Buổi tối", sub: "18:00 – 21:00" },
 ];
 
+const REVERSE_GEOCODE_URL = "https://nominatim.openstreetmap.org/reverse";
+
+function normalizeText(value = "") {
+  return value
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/đ/g, "d")
+    .replace(/Đ/g, "D")
+    .toLowerCase()
+    .replace(/\b(thanh pho|tp\.?|tinh)\b/g, " ")
+    .replace(/[^\p{L}\p{N}\s]/gu, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function pickFirstText(...values) {
+  return values.find((value) => typeof value === "string" && value.trim())?.trim() || "";
+}
+
+function matchProvinceName(rawProvince) {
+  if (!rawProvince) return "";
+  const normalizedInput = normalizeText(rawProvince);
+
+  return (
+    provinces.find((province) => {
+      const normalizedProvince = normalizeText(province);
+      return (
+        normalizedProvince === normalizedInput ||
+        normalizedProvince.includes(normalizedInput) ||
+        normalizedInput.includes(normalizedProvince)
+      );
+    }) || ""
+  );
+}
+
+function buildStreetValue(address = {}) {
+  const road = pickFirstText(
+    address.road,
+    address.residential,
+    address.pedestrian,
+    address.footway,
+    address.cycleway
+  );
+
+  return [pickFirstText(address.house_number), road].filter(Boolean).join(" ").trim();
+}
+
 export default function ShippingAddress() {
   const navigate = useNavigate();
   const { cartItems, appliedCoupon, clearCart, getTotalPrice, getDiscountAmount, getFinalTotal } = useCart();
+  const geocodeRequestRef = useRef(0);
 
   const subtotal = getTotalPrice();
   const discountAmount = getDiscountAmount();
@@ -42,10 +91,135 @@ export default function ShippingAddress() {
   const [done, setDone] = useState(false);
   const [showLoginModal, setShowLoginModal] = useState(false); 
   const [orderId] = useState("#KT" + Date.now().toString().slice(-6));
+  const [selectedLocation, setSelectedLocation] = useState(null);
+  const [mapAddress, setMapAddress] = useState("");
+  const [geoLoading, setGeoLoading] = useState(false);
+  const [locateLoading, setLocateLoading] = useState(false);
+  const [geoError, setGeoError] = useState("");
+  const [geoSuccess, setGeoSuccess] = useState("");
 
   const set = (key, val) => {
     setForm(f => ({ ...f, [key]: val }));
     if (errors[key]) setErrors(e => ({ ...e, [key]: "" }));
+  };
+
+  const handleMapLocationChange = async (position) => {
+    const nextPosition = {
+      lat: Number(position.lat),
+      lng: Number(position.lng),
+    };
+
+    setSelectedLocation(nextPosition);
+    setGeoLoading(true);
+    setGeoError("");
+    setGeoSuccess("");
+    setMapAddress("");
+
+    const requestId = ++geocodeRequestRef.current;
+
+    try {
+      const params = new URLSearchParams({
+        format: "jsonv2",
+        lat: String(nextPosition.lat),
+        lon: String(nextPosition.lng),
+        addressdetails: "1",
+        "accept-language": "vi",
+      });
+
+      const response = await fetch(`${REVERSE_GEOCODE_URL}?${params.toString()}`, {
+        headers: {
+          Accept: "application/json",
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error("reverse-geocode-failed");
+      }
+
+      const data = await response.json();
+      if (requestId !== geocodeRequestRef.current) return;
+
+      const address = data.address || {};
+      const province = matchProvinceName(
+        pickFirstText(address.state, address.city, address.province, address.region)
+      );
+      const district = pickFirstText(
+        address.city_district,
+        address.county,
+        address.state_district,
+        address.town,
+        address.city,
+        address.municipality
+      );
+      const ward = pickFirstText(
+        address.suburb,
+        address.quarter,
+        address.village,
+        address.hamlet,
+        address.neighbourhood
+      );
+      const street = buildStreetValue(address);
+
+      setForm((current) => ({
+        ...current,
+        province: province || current.province,
+        district: district || current.district,
+        ward: ward || current.ward,
+        street: street || current.street,
+      }));
+
+      setErrors((current) => ({
+        ...current,
+        province: province ? "" : current.province,
+        district: district ? "" : current.district,
+        ward: ward ? "" : current.ward,
+        street: street ? "" : current.street,
+      }));
+
+      setMapAddress(data.display_name || "");
+      setGeoSuccess(
+        province || district || ward || street
+          ? "Da cap nhat dia chi tu vi tri ghim. Ban co the chinh sua them neu can."
+          : "Da lay toa do. Ban vui long kiem tra va bo sung dia chi giao hang."
+      );
+    } catch {
+      if (requestId !== geocodeRequestRef.current) return;
+      setGeoError("Khong the lay dia chi tu vi tri nay. Ban van co the nhap thu cong.");
+    } finally {
+      if (requestId === geocodeRequestRef.current) {
+        setGeoLoading(false);
+      }
+    }
+  };
+
+  const handleLocateMe = () => {
+    if (!navigator.geolocation) {
+      setGeoError("Trinh duyet nay chua ho tro lay vi tri hien tai.");
+      return;
+    }
+
+    setLocateLoading(true);
+    setGeoError("");
+    setGeoSuccess("");
+
+    navigator.geolocation.getCurrentPosition(
+      async ({ coords }) => {
+        setLocateLoading(false);
+        await handleMapLocationChange({
+          lat: coords.latitude,
+          lng: coords.longitude,
+        });
+      },
+      () => {
+        setLocateLoading(false);
+        setGeoError("Khong the lay vi tri hien tai. Ban thu bat quyen vi tri hoac ghim tay tren ban do.");
+      },
+      {
+        enableHighAccuracy: true,
+        timeout: 10000,
+        maximumAge: 0,
+      }
+    );
   };
 
   const validate = () => {
@@ -92,6 +266,8 @@ export default function ShippingAddress() {
       customerName: form.fullName,
       phone: form.phone,
       address: `${form.street}, ${form.ward}, ${form.district}, ${form.province}`,
+      latitude: selectedLocation?.lat ?? null,
+      longitude: selectedLocation?.lng ?? null,
       note: form.note,
       couponId: appliedCoupon && discountAmount > 0 ? appliedCoupon.id : null,
       discountAmount: discountAmount,
@@ -238,6 +414,39 @@ export default function ShippingAddress() {
                 <div>
                   <div style={s.sectionTitle}>Địa chỉ giao hàng</div>
                   <div style={s.sectionSub}>Địa chỉ công trình hoặc kho nhận hàng</div>
+                </div>
+              </div>
+
+              <div style={s.mapSection}>
+                <LocationPickerMap
+                  value={selectedLocation}
+                  onChange={handleMapLocationChange}
+                  onLocateMe={handleLocateMe}
+                  locateMeLoading={locateLoading}
+                />
+
+                <div style={s.mapMessageStack}>
+                  <div style={s.mapHint}>
+                    Goi y: bam len ban do de them ghim, sau do keo den dung cong trinh de he thong tu dien dia chi.
+                  </div>
+
+                  {geoLoading && (
+                    <div style={s.mapInfo}>Dang phan tich vi tri va tim dia chi...</div>
+                  )}
+
+                  {!geoLoading && geoSuccess && (
+                    <div style={s.mapSuccess}>{geoSuccess}</div>
+                  )}
+
+                  {geoError && (
+                    <div style={s.mapError}>{geoError}</div>
+                  )}
+
+                  {mapAddress && (
+                    <div style={s.mapAddressBox}>
+                      <strong>Dia chi tu ban do:</strong> {mapAddress}
+                    </div>
+                  )}
                 </div>
               </div>
 
@@ -565,6 +774,13 @@ const s = {
   sectionSub: { fontSize: "0.78rem", color: "#aaa", marginTop: "3px" },
   row2: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: "14px" },
   row3: { display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "14px" },
+  mapSection: { display: "flex", flexDirection: "column", gap: "12px" },
+  mapMessageStack: { display: "flex", flexDirection: "column", gap: "10px" },
+  mapHint: { fontSize: "0.78rem", color: "#7b7b7b", lineHeight: "1.6" },
+  mapInfo: { background: "#eef4ff", border: "1px solid #b8d1ff", color: "#2457a6", borderRadius: "10px", padding: "11px 14px", fontSize: "0.8rem", fontWeight: "600" },
+  mapSuccess: { background: "#eaf3de", border: "1px solid #b7d48f", color: "#3b6d11", borderRadius: "10px", padding: "11px 14px", fontSize: "0.8rem", fontWeight: "600" },
+  mapError: { background: "#fcebeb", border: "1px solid #f0b6b6", color: "#a32d2d", borderRadius: "10px", padding: "11px 14px", fontSize: "0.8rem", fontWeight: "600" },
+  mapAddressBox: { background: "#faf9f7", border: "1px solid #ebebeb", borderRadius: "10px", padding: "11px 14px", fontSize: "0.8rem", color: "#4c4c4c", lineHeight: "1.65" },
   label: { fontSize: "0.8rem", fontWeight: "700", color: "#333", letterSpacing: "0.02em" },
   inputWrapBase: { display: "flex", alignItems: "center", background: "#fff", border: "1.5px solid #e0ddd8", borderRadius: "10px", transition: "border-color 0.2s" },
   icon: { padding: "0 10px 0 12px", fontSize: "0.85rem", color: "#bbb", flexShrink: 0 },
